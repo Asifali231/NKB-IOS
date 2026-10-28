@@ -6,9 +6,6 @@ workflows:
     integrations:
       app_store_connect: codemagic
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.nikahblessing.marriagebeauro.nikahBlessing
       vars:
         BUNDLE_ID: "com.nikahblessing.marriagebeauro.nikahBlessing"
       flutter: stable
@@ -18,6 +15,9 @@ workflows:
       - name: Set up code signing
         script: |
           keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE --create
+          keychain add-certificates
           xcode-project use-profiles
       - name: Get packages
         script: |
