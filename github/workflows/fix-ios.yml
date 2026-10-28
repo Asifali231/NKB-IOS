@@ -1,0 +1,41 @@
+name: Fix iOS Build Phases with AI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+          
+      - name: AI Fix - Rebuild iOS folder
+        run: |
+          # Backup important files
+          cp ios/Runner/GoogleService-Info.plist /tmp/ || echo "No GoogleService file"
+          cp -r ios/Runner/Assets.xcassets /tmp/ || echo "No Assets"
+          
+          # Delete and recreate ios folder (fixes Build Phases order)
+          rm -rf ios
+          flutter create . --platforms=ios
+          
+          # Restore backups
+          cp /tmp/GoogleService-Info.plist ios/Runner/ || echo "Restore skip"
+          rm -rf ios/Runner/Assets.xcassets
+          cp -r /tmp/Assets.xcassets ios/Runner/ || echo "Assets restore skip"
+          
+          flutter pub get
+          cd ios && pod install --repo-update && cd ..
+          
+      - name: Push fixed code
+        run: |
+          git config user.name "AI Fix Bot"
+          git config user.email "ai@github.com"
+          git add .
+          git commit -m "AI: Fixed iOS Build Phases - Thin Binary order" || echo "No changes"
+          git push origin main
