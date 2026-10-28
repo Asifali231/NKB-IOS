@@ -11,7 +11,7 @@ workflows:
       cocoapods: default
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.your.app
+        bundle_identifier: com.nikahblessing.marriagebeauro.nikahBlessing
     scripts:
       - name: Get Flutter packages
         script: flutter packages pub get
@@ -21,7 +21,7 @@ workflows:
       - name: Set up code signing
         script: |
           keychain initialize
-          app-store-connect fetch-signing-files "com.your.app" \
+          app-store-connect fetch-signing-files "com.nikahblessing.marriagebeauro.nikahBlessing" \
             --type IOS_APP_STORE \
             --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
             --create
