@@ -1,0 +1,69 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "nikahblessingapp-org",
+          "appId": "1:582571190650:android:b76bf27e51751caee88ec3",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "nikahblessingapp-org",
+          "configurations": {
+            "android": "1:582571190650:android:b76bf27e51751caee88ec3",
+            "web": "1:582571190650:web:6c8bbcf17d67c217e88ec3",
+            "windows": "1:582571190650:web:dd742c114b6bb146e88ec3"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ],
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "headers": [
+      {
+        "source": "app-ads.txt",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "text/plain; charset=utf-8"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=300"
+          }
+        ]
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/privacy-policy",
+        "destination": "/privacy-policy/index.html"
+      },
+      {
+        "source": "/child-safety-standards",
+        "destination": "/child-safety-standards/index.html"
+      }
+    ]
+  }
+}

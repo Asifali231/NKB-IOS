@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nikah Blessing — Upload packages to Firestore</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --border: #2d3a4d;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3d8bfd;
+      --ok: #3ecf8e;
+      --err: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 24px;
+      line-height: 1.5;
+      max-width: 720px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    h1 { font-size: 1.35rem; font-weight: 600; margin: 0 0 8px; }
+    p.muted { color: var(--muted); font-size: 0.9rem; margin: 0 0 20px; }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+    }
+    section h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin: 0 0 12px;
+      font-weight: 600;
+    }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      background: var(--accent);
+      color: #fff;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    #log {
+      font-family: ui-monospace, monospace;
+      font-size: 0.78rem;
+      white-space: pre-wrap;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 120px;
+      max-height: 280px;
+      overflow-y: auto;
+      color: var(--muted);
+    }
+    #log .ok { color: var(--ok); }
+    #log .err { color: var(--err); }
+    .warn {
+      font-size: 0.85rem;
+      color: #fbbf24;
+      border-left: 3px solid #fbbf24;
+      padding-left: 10px;
+      margin: 12px 0 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Upload packages to Firestore</h1>
+  <p class="muted">
+    Writes the <strong>packages</strong> collection. Edit <code>firebaseConfig</code> in the script below (Firebase Console → Project settings → Your apps), then open this file and click Upload.
+  </p>
+
+  <section>
+    <h2>Upload</h2>
+    <p class="muted" style="margin-bottom:12px;">
+      Document IDs: <code>priority_service</code>, <code>consultation</code>, <code>premium_support</code>, <code>free</code>.
+    </p>
+    <div class="actions">
+      <button type="button" id="btnUpload">Upload packages to Firestore</button>
+    </div>
+    <p class="warn">
+      Keep this file private. If writes fail, relax Firestore rules for <code>packages</code> during setup or use a rule that allows your case; restore strict rules afterward.
+    </p>
+    <h2 style="margin-top:20px;">Log</h2>
+    <div id="log"></div>
+  </section>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script>
+    (function () {
+      // Paste your web app config from Firebase Console (Project settings → Your apps).
+      const firebaseConfig = {
+        apiKey: "AIzaSyCJv8lbASeS1soL2Y04Ue8QY2mLaeWgqDo",
+  authDomain: "nikahblessingapp-org.firebaseapp.com",
+  databaseURL: "https://nikahblessingapp-org-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "nikahblessingapp-org",
+  storageBucket: "nikahblessingapp-org.appspot.com",
+  messagingSenderId: "582571190650",
+  appId: "1:582571190650:web:6c8bbcf17d67c217e88ec3",
+  measurementId: "G-33RQNG10TL"
+      };
+
+      const PACKAGES = [
+        {
+          name: "priority_service",
+          price: 10000,
+          description: "Priority access to premium matches and services",
+          isActive: true,
+          order: 1,
+          priorityMatches: 10,
+          expressReview: true,
+          reviewHours: 24,
+          exclusiveEvents: true,
+          verifiedOnly: true
+        },
+        {
+          name: "consultation",
+          price: 5000,
+          description: "Professional matchmaking consultation service",
+          isActive: true,
+          order: 2,
+          consultationHours: 1,
+          includesFollowUp: true,
+          followUpDays: 30
+        },
+        {
+          name: "premium_support",
+          price: 3000,
+          description: "24/7 dedicated support and guidance",
+          isActive: true,
+          order: 3,
+          supportHours: 30,
+          priorityAccess: true,
+          expertHotline: true,
+          emergencySupport: true
+        },
+        {
+          name: "free",
+          price: 0,
+          description: "Basic matchmaking service",
+          isActive: true,
+          order: 4
+        }
+      ];
+
+      function docIdFromName(name) {
+        return String(name).toLowerCase().trim().replace(/\s+/g, "_");
+      }
+
+      function log(msg, cls) {
+        const el = document.getElementById("log");
+        const line = document.createElement("div");
+        if (cls) line.className = cls;
+        line.textContent = msg;
+        el.appendChild(line);
+        el.scrollTop = el.scrollHeight;
+      }
+
+      let db = null;
+
+      function initFirebase() {
+        if (firebase.apps.length) return firebase.firestore();
+        if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY") {
+          throw new Error("Set firebaseConfig in this file (replace YOUR_* placeholders).");
+        }
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        return db;
+      }
+
+      document.getElementById("btnUpload").addEventListener("click", async function () {
+        document.getElementById("log").innerHTML = "";
+        try {
+          const firestore = initFirebase();
+          const ts = firebase.firestore.FieldValue.serverTimestamp();
+          const batch = firestore.batch();
+          for (const pkg of PACKAGES) {
+            const id = docIdFromName(pkg.name);
+            const ref = firestore.collection("packages").doc(id);
+            batch.set(ref, Object.assign({}, pkg, { createdAt: ts, updatedAt: ts }));
+            log("Queued: packages/" + id, "ok");
+          }
+          await batch.commit();
+          log("Done. Committed " + PACKAGES.length + " documents.", "ok");
+        } catch (e) {
+          log("Error: " + (e.message || e), "err");
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

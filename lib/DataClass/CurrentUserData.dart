@@ -1,0 +1,11 @@
+class CurrentUserData
+{
+
+
+  void getCurrentUserData()
+  {
+
+  }
+
+
+}

@@ -1,0 +1,91 @@
+Flutter crash report.
+Please report a bug at https://github.com/flutter/flutter/issues.
+
+## command
+
+flutter test
+
+## exception
+
+ShaderCompilerException: ShaderCompilerException: Shader compilation of "/usr/local/share/flutter/packages/flutter/lib/src/material/shaders/ink_sparkle.frag" to "build/unit_test_assets/shaders/ink_sparkle.frag" failed with exit code -9.
+
+
+
+```
+#0      ShaderCompiler.compileShader (package:flutter_tools/src/build_system/tools/shader_compiler.dart:232:9)
+<asynchronous suspension>
+#1      writeBundle.<anonymous closure> (package:flutter_tools/src/bundle_builder.dart:227:25)
+<asynchronous suspension>
+#2      Future.wait.<anonymous closure> (dart:async/future.dart:546:21)
+<asynchronous suspension>
+#3      writeBundle (package:flutter_tools/src/bundle_builder.dart:171:3)
+<asynchronous suspension>
+#4      TestCommand._buildTestAsset (package:flutter_tools/src/commands/test.dart:801:7)
+<asynchronous suspension>
+#5      TestCommand.runCommand (package:flutter_tools/src/commands/test.dart:497:7)
+<asynchronous suspension>
+#6      FlutterCommand.run.<anonymous closure> (package:flutter_tools/src/runner/flutter_command.dart:1630:27)
+<asynchronous suspension>
+#7      AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:154:19)
+<asynchronous suspension>
+#8      CommandRunner.runCommand (package:args/command_runner.dart:212:13)
+<asynchronous suspension>
+#9      FlutterCommandRunner.runCommand.<anonymous closure> (package:flutter_tools/src/runner/flutter_command_runner.dart:496:9)
+<asynchronous suspension>
+#10     AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:154:19)
+<asynchronous suspension>
+#11     FlutterCommandRunner.runCommand (package:flutter_tools/src/runner/flutter_command_runner.dart:431:5)
+<asynchronous suspension>
+#12     FlutterCommandRunner.run.<anonymous closure> (package:flutter_tools/src/runner/flutter_command_runner.dart:307:33)
+<asynchronous suspension>
+#13     run.<anonymous closure>.<anonymous closure> (package:flutter_tools/runner.dart:104:11)
+<asynchronous suspension>
+#14     AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:154:19)
+<asynchronous suspension>
+#15     main (package:flutter_tools/executable.dart:103:3)
+<asynchronous suspension>
+```
+
+## flutter doctor
+
+```
+[!] Flutter (Channel stable, 3.44.0, on macOS 15.7.9 24G830 darwin-x64, locale en-US) [5.7s]
+    • Flutter version 3.44.0 on channel stable at /usr/local/share/flutter
+    • Upstream repository https://github.com/flutter/flutter.git
+    • Framework revision 559ffa3f75 (5 months ago), 2026-05-15 14:13:13 -0700
+    • Engine revision 4c525dac5e
+    • Dart version 3.12.0
+    • DevTools version 2.57.0
+    • Feature flags: enable-web, enable-linux-desktop, enable-macos-desktop, enable-windows-desktop, enable-android, enable-ios, cli-animations, enable-native-assets, no-enable-swift-package-manager, omit-legacy-version-file, enable-lldb-debugging, enable-uiscene-migration
+    ✗ Downloaded executables cannot execute on host.
+      See https://github.com/flutter/flutter/issues/6207 for more information.
+
+    • If those were intentional, you can disregard the above warnings; however it is recommended to use "git" directly to perform update checks and upgrades.
+
+[✗] Android toolchain - develop for Android devices [772ms]
+    ✗ Unable to locate Android SDK.
+      Install Android Studio from: https://developer.android.com/studio/index.html
+      On first launch it will assist you in installing the Android SDK components.
+      (or visit https://flutter.dev/to/macos-android-setup for detailed instructions).
+      If the Android SDK has been installed to a custom location, please use
+      `flutter config --android-sdk` to update to that location.
+
+
+[✓] Xcode - develop for iOS and macOS (Xcode 16.3) [38.0s]
+    • Xcode at /Applications/Xcode 2.app/Contents/Developer
+    • Build 16E137
+    • CocoaPods version 1.16.2
+
+[✓] Chrome - develop for the web [248ms]
+    • Chrome at /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+
+[✓] Connected device (3 available) [94.6s]
+    • iPhone (mobile) • 00008030-000D78D21E86802E • ios            • iOS 26.7 23H24
+    • macOS (desktop) • macos                     • darwin-x64     • macOS 15.7.9 24G830 darwin-x64
+    • Chrome (web)    • chrome                    • web-javascript • Google Chrome 156.0.8078.48
+
+[✓] Network resources [2.8s]
+    • All expected network resources are available.
+
+! Doctor found issues in 2 categories.
+```
