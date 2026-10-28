@@ -12,35 +12,79 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
-      - name: Set up code signing
-        script: |
-          keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE --create
-          keychain add-certificates
-          xcode-project use-profiles
-      - name: Check signing
-        script: |
-          echo "=== Profiles ==="
-          ls ~/Library/MobileDevice/Provisioning\ Profiles
-          for p in ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision; do
-            echo "--- $p"
-            security cms -D -i "$p" | grep -A1 -E "<key>Name</key>|applesignin|<key>application-identifier</key>"
-          done
-          echo "=== Project ==="
-          grep -E "PROVISIONING_PROFILE_SPECIFIER|CODE_SIGN_STYLE|CODE_SIGN_ENTITLEMENTS" ios/Runner.xcodeproj/project.pbxproj
-          echo "=== Entitlements ==="
-          cat ios/Runner/*.entitlements || true
       - name: Get packages
         script: |
           flutter pub get
           cd ios
           pod install --repo-update
-          cd ..
+      - name: Set up App Store code signing
+        script: |
+          set -euo pipefail
+          : "${APP_STORE_CONNECT_ISSUER_ID:?Missing APP_STORE_CONNECT_ISSUER_ID in the appstore group}"
+          : "${APP_STORE_CONNECT_KEY_IDENTIFIER:?Missing APP_STORE_CONNECT_KEY_IDENTIFIER in the appstore group}"
+          : "${APP_STORE_CONNECT_PRIVATE_KEY:?Missing APP_STORE_CONNECT_PRIVATE_KEY in the appstore group}"
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --strict-match-identifier \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles \
+            --project ios/Runner.xcodeproj \
+            --archive-method app-store \
+            --code-signing-setup-verbose-logging
+      - name: Verify App Store signing profile
+        script: |
+          set -euo pipefail
+          settings="$(xcodebuild \
+            -project ios/Runner.xcodeproj \
+            -target Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -showBuildSettings)"
+          signing_style="$(printf '%s\n' "$settings" | awk -F ' = ' '/^[[:space:]]*CODE_SIGN_STYLE = / { value = $2 } END { sub(/^[[:space:]]+/, "", value); sub(/[[:space:]]+$/, "", value); print value }')"
+          profile_specifier="$(printf '%s\n' "$settings" | awk -F ' = ' '/^[[:space:]]*PROVISIONING_PROFILE_SPECIFIER = / { value = $2 } END { sub(/^[[:space:]]+/, "", value); sub(/[[:space:]]+$/, "", value); print value }')"
+          if [ "$signing_style" != "Manual" ] || [ -z "$profile_specifier" ]; then
+            echo "App Store provisioning profile was not applied to Runner. Check the Apple Developer API key and App Store distribution certificate/profile." >&2
+            exit 1
+          fi
+
+          decoded_profile="$(mktemp)"
+          trap 'rm -f "$decoded_profile"' EXIT
+          profile_found=0
+          for profile_dir in \
+            "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" \
+            "$HOME/Library/MobileDevice/Provisioning Profiles"; do
+            [ -d "$profile_dir" ] || continue
+            for profile in "$profile_dir"/*.mobileprovision; do
+              [ -f "$profile" ] || continue
+              security cms -D -i "$profile" > "$decoded_profile"
+              application_identifier="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$decoded_profile")"
+              bundle_id="${application_identifier#*.}"
+              [ "$bundle_id" = "$BUNDLE_ID" ] || continue
+              profile_uuid="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$decoded_profile")"
+              profile_name="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$decoded_profile")"
+              [ "$profile_specifier" = "$profile_uuid" ] || [ "$profile_specifier" = "$profile_name" ] || continue
+              get_task_allow="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:get-task-allow' "$decoded_profile")"
+              if apple_sign_in="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.developer.applesignin' "$decoded_profile" 2>/dev/null)"; then
+                :
+              else
+                apple_sign_in=""
+              fi
+              if [ "$get_task_allow" = "false" ] && printf '%s\n' "$apple_sign_in" | grep -q "Default"; then
+                profile_found=1
+                break 2
+              fi
+            done
+          done
+          if [ "$profile_found" -ne 1 ]; then
+            echo "The selected App Store profile must match $BUNDLE_ID and include the Sign in with Apple entitlement. Enable that capability for the App ID, then regenerate the App Store profile." >&2
+            exit 1
+          fi
       - name: Build IPA
         script: |
           flutter build ipa --release \
-            --export-options-plist=/Users/builder/export_options.plist
+            --export-options-plist="$HOME/export_options.plist"
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
