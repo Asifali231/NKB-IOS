@@ -14,7 +14,10 @@ workflows:
       cocoapods: default
     scripts:
       - name: Get Flutter packages
-        script: flutter packages pub get
+        script: |
+          set -euo pipefail
+          rm -rf "$HOME/.pub-cache/hosted/pub.dev/csc_picker-0.2.7"
+          flutter pub get
       - name: Install pods
         script: |
           find . -name "Podfile" -execdir pod install \;
