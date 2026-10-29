@@ -47,7 +47,10 @@ dependencies:
   scroll_date_picker: ^3.1.0
   numberpicker: ^2.1.2
   slider_button: ^3.1.0
-  csc_picker: ^0.2.6
+  csc_picker:
+    git:
+      url: https://github.com/altafc22/csc_picker.git
+      ref: 0fcdd7e3137a2ebaab36a7401e09ad7ef3a433e5
   photo_view: ^0.15.0
   quickalert: ^1.1.0
   image_picker: ^1.0.1
