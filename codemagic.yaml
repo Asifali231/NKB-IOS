@@ -26,8 +26,10 @@ workflows:
           xcode-project use-profiles
       - name: Build IPA
         script: |
-          flutter build ipa --release \
-            --export-options-plist="$HOME/export_options.plist"
+          flutter build ios --release --no-codesign
+          xcode-project build-ipa \
+            --workspace "ios/Runner.xcworkspace" \
+            --scheme "Runner"
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
@@ -35,4 +37,4 @@ workflows:
         api_key: $APP_STORE_CONNECT_PRIVATE_KEY
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-        submit_to_testflight: true
+        submit_to_testflig
