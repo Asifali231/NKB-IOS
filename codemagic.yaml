@@ -23,12 +23,17 @@ workflows:
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
-            --create
+            --create \
+            --verbose
           keychain add-certificates
-          xcode-project use-profiles
-          ls -la ~/Library/MobileDevice/Provisioning\ Profiles
+          security find-identity -v -p codesigning
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles"
+          xcode-project use-profiles --project ios/Runner.xcodeproj
+          grep -n "PROVISIONING_PROFILE_SPECIFIER\|CODE_SIGN_STYLE" ios/Runner.xcodeproj/project.pbxproj
       - name: Build IPA
-        script: flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist
+        script: |
+          cat /Users/builder/export_options.plist
+          flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
