@@ -8,6 +8,7 @@ workflows:
         - appstore
       vars:
         BUNDLE_ID: com.nikahblessing.marriagebeauro.nikahBlessing
+        TEAM_ID: 2LJ8H9R266
       flutter: stable
       xcode: latest
       cocoapods: default
@@ -19,39 +20,107 @@ workflows:
           find . -name "Podfile" -execdir pod install \;
       - name: Set up code signing
         script: |
-          set -e
+          set -euo pipefail
+          : "${APP_STORE_CONNECT_ISSUER_ID:?Add APP_STORE_CONNECT_ISSUER_ID to the appstore group}"
+          : "${APP_STORE_CONNECT_KEY_IDENTIFIER:?Add APP_STORE_CONNECT_KEY_IDENTIFIER to the appstore group}"
+          : "${APP_STORE_CONNECT_PRIVATE_KEY:?Add APP_STORE_CONNECT_PRIVATE_KEY to the appstore group}"
+          : "${CERTIFICATE_PRIVATE_KEY:?Add CERTIFICATE_PRIVATE_KEY to the appstore group}"
           keychain initialize
-          app-store-connect fetch-signing-files "com.nikahblessing.marriagebeauro.nikahBlessing" \
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --issuer-id "@env:APP_STORE_CONNECT_ISSUER_ID" \
+            --key-id "@env:APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --private-key "@env:APP_STORE_CONNECT_PRIVATE_KEY" \
             --type IOS_APP_STORE \
             --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
             --create
           keychain add-certificates
           security find-identity -v -p codesigning
-          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles"
+          PROFILE_DIRS=(
+            "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+            "$HOME/Library/MobileDevice/Provisioning Profiles"
+          )
+          DECODED_PROFILE="$(mktemp)"
+          trap 'rm -f "$DECODED_PROFILE"' EXIT
+          PROFILE_PATH=""
+          PROFILE_NAME=""
+          PROFILE_UUID=""
+          for PROFILE_DIR in "${PROFILE_DIRS[@]}"; do
+            [ -d "$PROFILE_DIR" ] || continue
+            for CANDIDATE in "$PROFILE_DIR"/*.mobileprovision; do
+              [ -f "$CANDIDATE" ] || continue
+              security cms -D -i "$CANDIDATE" > "$DECODED_PROFILE" || continue
+              APP_IDENTIFIER=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$DECODED_PROFILE" 2>/dev/null || true)
+              TEAM_IDENTIFIER=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$DECODED_PROFILE" 2>/dev/null || true)
+              GET_TASK_ALLOW=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:get-task-allow' "$DECODED_PROFILE" 2>/dev/null || true)
+              PROVISIONED_DEVICES=$(/usr/libexec/PlistBuddy -c 'Print :ProvisionedDevices' "$DECODED_PROFILE" 2>/dev/null || true)
+              case "$APP_IDENTIFIER" in
+                *."$BUNDLE_ID") ;;
+                *) continue ;;
+              esac
+              [ "$TEAM_IDENTIFIER" = "$TEAM_ID" ] || continue
+              [ "$GET_TASK_ALLOW" = "false" ] || continue
+              [ -z "$PROVISIONED_DEVICES" ] || continue
+              PROFILE_PATH="$CANDIDATE"
+              PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$DECODED_PROFILE")
+              PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$DECODED_PROFILE")
+              break 2
+            done
+          done
+          if [ -z "$PROFILE_PATH" ]; then
+            echo "No App Store provisioning profile found for $BUNDLE_ID and team $TEAM_ID." >&2
+            echo "Provisioning profiles installed in the expected directories:" >&2
+            for PROFILE_DIR in "${PROFILE_DIRS[@]}"; do
+              ls -la "$PROFILE_DIR" >&2 || true
+            done
+            exit 1
+          fi
+          echo "Selected App Store profile: $PROFILE_NAME ($PROFILE_UUID)"
+          mkdir -p build/ios
+          printf 'PROFILE_UUID=%q\nPROFILE_NAME=%q\nPROFILE_PATH=%q\n' \
+            "$PROFILE_UUID" "$PROFILE_NAME" "$PROFILE_PATH" > build/ios/signing_profile.env
+          echo "Provisioning profile locations:"
+          for PROFILE_DIR in "${PROFILE_DIRS[@]}"; do
+            ls -la "$PROFILE_DIR" || true
+          done
       - name: Build IPA
         script: |
-          set -e
-          PROFILE_PATH=$(ls "$HOME/Library/MobileDevice/Provisioning Profiles"/*.mobileprovision | head -1)
-          test -n "$PROFILE_PATH" || { echo "NO PROFILE FOUND"; exit 1; }
-          security cms -D -i "$PROFILE_PATH" > /tmp/profile.plist
-          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" /tmp/profile.plist)
-          echo "Using profile: $PROFILE_NAME"
+          set -euo pipefail
+          if [ ! -f build/ios/signing_profile.env ]; then
+            echo "Provisioning profile selection metadata is missing." >&2
+            exit 1
+          fi
+          source build/ios/signing_profile.env
+          if [ ! -f "$PROFILE_PATH" ]; then
+            echo "Selected provisioning profile $PROFILE_UUID is no longer installed." >&2
+            exit 1
+          fi
           flutter build ios --release --no-codesign
-          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' ios/Runner.xcodeproj/project.pbxproj
-          sed -i '' "s/DEVELOPMENT_TEAM = 2LJ8H9R266;/DEVELOPMENT_TEAM = 2LJ8H9R266; PROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\"; \"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"Apple Distribution\";/g" ios/Runner.xcodeproj/project.pbxproj
           cat > /tmp/ExportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict>
-          <key>method</key><string>app-store-connect</string>
-          <key>teamID</key><string>2LJ8H9R266</string>
-          <key>signingStyle</key><string>manual</string>
-          <key>provisioningProfiles</key><dict>
-          <key>com.nikahblessing.marriagebeauro.nikahBlessing</key><string>$PROFILE_NAME</string>
-          </dict></dict></plist>
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>teamID</key>
+            <string>${TEAM_ID}</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${BUNDLE_ID}</key>
+              <string>${PROFILE_NAME}</string>
+            </dict>
+          </dict>
+          </plist>
           EOF
+          plutil -lint /tmp/ExportOptions.plist
           xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release \
-            -archivePath build/ios/Runner.xcarchive archive
+            -archivePath build/ios/Runner.xcarchive archive \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID"
           xcodebuild -exportArchive -archivePath build/ios/Runner.xcarchive \
             -exportOptionsPlist /tmp/ExportOptions.plist -exportPath build/ios/ipa
     artifacts:
