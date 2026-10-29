@@ -19,21 +19,41 @@ workflows:
           find . -name "Podfile" -execdir pod install \;
       - name: Set up code signing
         script: |
+          set -e
           keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+          app-store-connect fetch-signing-files "com.nikahblessing.marriagebeauro.nikahBlessing" \
             --type IOS_APP_STORE \
             --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
-            --create \
-            --verbose
+            --create
           keychain add-certificates
           security find-identity -v -p codesigning
           ls -la "$HOME/Library/MobileDevice/Provisioning Profiles"
-          xcode-project use-profiles --project ios/Runner.xcodeproj
-          grep -n "PROVISIONING_PROFILE_SPECIFIER\|CODE_SIGN_STYLE" ios/Runner.xcodeproj/project.pbxproj
       - name: Build IPA
         script: |
-          cat /Users/builder/export_options.plist
-          flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist
+          set -e
+          PROFILE_PATH=$(ls "$HOME/Library/MobileDevice/Provisioning Profiles"/*.mobileprovision | head -1)
+          test -n "$PROFILE_PATH" || { echo "NO PROFILE FOUND"; exit 1; }
+          security cms -D -i "$PROFILE_PATH" > /tmp/profile.plist
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" /tmp/profile.plist)
+          echo "Using profile: $PROFILE_NAME"
+          flutter build ios --release --no-codesign
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' ios/Runner.xcodeproj/project.pbxproj
+          sed -i '' "s/DEVELOPMENT_TEAM = 2LJ8H9R266;/DEVELOPMENT_TEAM = 2LJ8H9R266; PROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\"; \"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"Apple Distribution\";/g" ios/Runner.xcodeproj/project.pbxproj
+          cat > /tmp/ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+          <key>method</key><string>app-store-connect</string>
+          <key>teamID</key><string>2LJ8H9R266</string>
+          <key>signingStyle</key><string>manual</string>
+          <key>provisioningProfiles</key><dict>
+          <key>com.nikahblessing.marriagebeauro.nikahBlessing</key><string>$PROFILE_NAME</string>
+          </dict></dict></plist>
+          EOF
+          xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release \
+            -archivePath build/ios/Runner.xcarchive archive
+          xcodebuild -exportArchive -archivePath build/ios/Runner.xcarchive \
+            -exportOptionsPlist /tmp/ExportOptions.plist -exportPath build/ios/ipa
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
