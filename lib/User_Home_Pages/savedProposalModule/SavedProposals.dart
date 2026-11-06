@@ -20,7 +20,6 @@ class _SavedProposalsState extends State<SavedProposals>
   String? currentUserId;
   late AnimationController _animationController;
   late AnimationController _staggerController;
-  late Animation<double> _headerAnimation;
   late Animation<double> _opacityAnimation;
   late Animation<double> _fadeAnimation;
 
@@ -39,9 +38,6 @@ class _SavedProposalsState extends State<SavedProposals>
     _staggerController = AnimationController(
       duration: Duration(milliseconds: 800),
       vsync: this,
-    );
-    _headerAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack),
     );
     _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
@@ -652,8 +648,7 @@ class _SavedProposalsState extends State<SavedProposals>
               fit: StackFit.expand,
               children: [
                 // Profile image with optional blur
-                savedProposalData != null &&
-                        savedProposalData['ProfileImageUrls'] != null &&
+                savedProposalData['ProfileImageUrls'] != null &&
                         savedProposalData['ProfileImageUrls'].isNotEmpty
                     ? Stack(
                         children: [

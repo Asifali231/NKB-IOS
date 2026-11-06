@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:image_picker/image_picker.dart';
 
 class cameraImagePicker_widget extends StatefulWidget
@@ -171,18 +170,8 @@ class _cameraImagePicker_widgetState extends State<cameraImagePicker_widget> {
                     Expanded(
                       child: ElevatedButton(onPressed:()
                       {
-                        if (_imagePaths != null) {
-                          widget.onSaveImagePath(_imagePaths);
-                          Navigator.of(context).pop(); // Close the dialog
-                        } else {
-                          Fluttertoast.showToast(
-                            msg: 'Please Provide An Image',
-                            toastLength: Toast.LENGTH_SHORT, // Duration for which the toast is visible
-                            gravity: ToastGravity.BOTTOM, // Position of the toast on the screen
-                            backgroundColor: Colors.black54, // Background color of the toast
-                            textColor: Colors.white, // Text color of the toast
-                          );
-                        }
+                        widget.onSaveImagePath(_imagePaths);
+                        Navigator.of(context).pop(); // Close the dialog
                       },
                           style: ButtonStyle(
                             backgroundColor: MaterialStateProperty.all<Color>(Colors.green),

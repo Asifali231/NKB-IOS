@@ -194,6 +194,7 @@
 //   }
 // }
 
+import 'package:nikah_blessing/Email_Authentication/terms_acceptance_dialog.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -254,6 +255,7 @@ class _OTP_Verification_PageState extends State<OTP_Verification_Page> {
 
       if (userCredential.user != null) {
         await firestoreService.saveUserToFirestore(
+          acceptedTerms: widget.otpService.hasAcceptedTerms,
           name: "Not Set",
           email: email.trim(),
           uid: userCredential.user!.uid,
@@ -274,6 +276,7 @@ class _OTP_Verification_PageState extends State<OTP_Verification_Page> {
           );
 
           await firestoreService.saveUserToFirestore(
+            acceptedTerms: widget.otpService.hasAcceptedTerms,
             name: "Not Set",
             email: email.trim(),
             uid: userCredential.user!.uid,
@@ -406,9 +409,12 @@ class _OTP_Verification_PageState extends State<OTP_Verification_Page> {
                 width: double.infinity,
                 margin: EdgeInsets.only(right: 20, left: 20, top: 10),
                 child: ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     if (widget.otpService.verifyOtp(_enteredOtp)) {
-                      navigateToMainScreen(context);
+                      final accepted = await showTermsAcceptanceDialog(context);
+                      if (!accepted || !mounted) return;
+                      widget.otpService.hasAcceptedTerms = true;
+                      await navigateToMainScreen(context);
                     } else {
                       Fluttertoast.showToast(
                         msg: 'The code is incorrect or has expired.',

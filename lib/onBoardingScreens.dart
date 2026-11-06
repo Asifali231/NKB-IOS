@@ -1,8 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:nikah_blessing/Email_Authentication/EmailAuth_Main.dart';
-import 'package:nikah_blessing/Payement_Module/CC_PayementPage.dart';
 import 'package:nikah_blessing/size_config.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
@@ -20,11 +18,7 @@ class _onBoardingScreensState extends State<onBoardingScreens> {
   @override
   Widget build(BuildContext context) {
     size_config().init(context);
-
-    double sizeH = size_config.blockSizeH!;
     double sizeV = size_config.blockSizeV!;
-
-
 
     return Scaffold(
       body: Container(
@@ -188,7 +182,6 @@ class Page1 extends StatelessWidget {
     size_config().init(context);
 
     double sizeH = size_config.blockSizeH!;
-    double sizeV = size_config.blockSizeV!;
 
     double screenHeight = MediaQuery.of(context).size.height;
     double imageHeight = screenHeight * 0.5; // 80% of screen width
@@ -520,7 +513,6 @@ class Page4 extends StatelessWidget {
   Widget build(BuildContext context) {
     size_config().init(context);
     double sizeH = size_config.blockSizeH!;
-    double sizeV = size_config.blockSizeV!;
 
     return Container(
       color: Colors.transparent,

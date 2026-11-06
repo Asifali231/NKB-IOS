@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:image_picker/image_picker.dart';
 
 class ImagePickerWidget extends StatefulWidget
@@ -35,13 +34,8 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
       final pickedFile = await  picker.pickMultiImage();
 
       setState(() {
-        if (pickedFile != null) {
-          // Iterate through the picked files and store their paths
-          for (var pickedFile in pickedFile) {
-            _imagePaths.add(pickedFile.path);
-          }
-        } else {
-          print('No images selected');
+        for (final selectedFile in pickedFile) {
+          _imagePaths.add(selectedFile.path);
         }
       });
 
@@ -165,18 +159,8 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
                     Expanded(
                       child: ElevatedButton(onPressed:()
                       {
-                        if (_imagePaths != null) {
-                          widget.onSaveImagePath(_imagePaths);
-                          Navigator.of(context).pop(); // Close the dialog
-                        } else {
-                          Fluttertoast.showToast(
-                            msg: 'Please Provide An Image',
-                            toastLength: Toast.LENGTH_SHORT, // Duration for which the toast is visible
-                            gravity: ToastGravity.BOTTOM, // Position of the toast on the screen
-                            backgroundColor: Colors.black54, // Background color of the toast
-                            textColor: Colors.white, // Text color of the toast
-                          );
-                        }
+                        widget.onSaveImagePath(_imagePaths);
+                        Navigator.of(context).pop(); // Close the dialog
                       },
                           style: ButtonStyle(
                             backgroundColor: MaterialStateProperty.all<Color>(Colors.green),

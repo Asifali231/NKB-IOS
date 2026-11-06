@@ -4,13 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:nikah_blessing/Admin_Module/AdminPackagesMangment.dart';
 import 'package:nikah_blessing/Admin_Module/InAppPromotion.dart';
-import 'package:nikah_blessing/Admin_Module/PackageManagment.dart';
 import 'package:nikah_blessing/Admin_Module/sendNotification_Admin.dart';
 import 'package:nikah_blessing/Admin_Module/transactionRecords.dart';
-import 'package:nikah_blessing/Payement_Module/TransactionData.dart';
-import 'package:nikah_blessing/User_Home_Pages/AccountModule/editProfile_Page.dart';
-
-import '../Payement_Module/manualPayement_Page.dart';
 import 'AdminPaymentVerificationPage.dart';
 import 'ProfileVerfication_Module/ProfileVerfication.dart';
 import 'UserManagementPage.dart';
@@ -259,63 +254,6 @@ class _AdminHomePageState extends State<Admin_HomePage>
               Icons.dashboard_rounded,
               color: Colors.white,
               size: 32,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickStats() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatCard("Total Users", "2,453", Icons.people_rounded, Color(0xFF00B894)),
-        ),
-        SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard("Pending", "18", Icons.pending_actions, Color(0xFFE17055)),
-        ),
-        SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard("Revenue", "\$12.5K", Icons.trending_up, Color(0xFF6C5CE7)),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.1),
-            blurRadius: 15,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 24),
-          SizedBox(height: 12),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2D3436),
-            ),
-          ),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              color: Color(0xFF636E72),
             ),
           ),
         ],

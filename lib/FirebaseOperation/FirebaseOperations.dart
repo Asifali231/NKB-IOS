@@ -31,8 +31,6 @@ class FirebaseOperations
 
     try {
 
-      NotificationPage notificationPage = new NotificationPage();
-
       String userId = getCurrentUserId();
       await _firestore.collection('users').doc(userId).update({
         'savedProposals': FieldValue.arrayUnion([proposalId])
@@ -46,9 +44,6 @@ class FirebaseOperations
 
 
         });
-
-
-        return true;
       } catch (e) {
         print("The errror ${userId}");
         print("The errror ${MyData_Class.MyMapData["Gender"]}");
@@ -57,6 +52,7 @@ class FirebaseOperations
         return false;
       }
 
+      return true;
     } catch (e) {
       print("The errror ");
       print(e);
@@ -134,6 +130,22 @@ class FirebaseOperations
     }
   }
 
+  Future<void> reportUser(String reportedUserId, String reason) async {
+    final reporterUserId = getCurrentUserId();
+    if (reportedUserId.isEmpty || reportedUserId == reporterUserId) {
+      throw ArgumentError('Choose another user to report.');
+    }
+
+    await _firestore.collection('reports').add({
+      'reporterUserId': reporterUserId,
+      'reportedUserId': reportedUserId,
+      'reason': reason,
+      'details': '',
+      'createdAt': FieldValue.serverTimestamp(),
+      'status': 'new',
+    });
+  }
+
   // Add a friend (add to friends array)
   Future<bool> addFriend(String friendId) async {
     try {
@@ -199,9 +211,6 @@ class FirebaseOperations
         return false;
       }
 
-
-
-      return true;
     } catch (e) {
       print(e);
       return false;
@@ -227,9 +236,6 @@ class FirebaseOperations
         print(e);
         return false;
       }
-
-
-      return true;
     } catch (e) {
       print(e);
       return false;
@@ -254,9 +260,6 @@ class FirebaseOperations
         print(e);
         return false;
       }
-
-
-      return true;
     } catch (e) {
       print(e);
       return false;
@@ -281,9 +284,6 @@ class FirebaseOperations
         print(e);
         return false;
       }
-
-
-      return true;
     } catch (e) {
       print(e);
       return false;

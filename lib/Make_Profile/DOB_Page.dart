@@ -31,7 +31,6 @@ class _DOB_PageState extends State<DOB_Page> {
 
   String errorMessage = "";
 
-  late FixedExtentScrollController _controllers;
   int age = 0;
 
   static int _selectedMonthIndex = 0;
@@ -53,7 +52,6 @@ class _DOB_PageState extends State<DOB_Page> {
 
     age = getSpecificAgeOrElse(
         _selectedMonthIndex + 1, _selectedDateIndex, _selectedYearIndex);
-    _controllers = FixedExtentScrollController(initialItem: 10000);
   }
 
   void _onSelectedItemChanged(int index) {

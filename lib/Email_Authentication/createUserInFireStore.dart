@@ -39,7 +39,12 @@ class FirestoreService {
     required String name,
     required String email,
     required String uid,
+    required bool acceptedTerms,
   }) async {
+    if (!acceptedTerms) {
+      throw StateError('Accept the Terms of Use before continuing.');
+    }
+
     await _getDeviceToken();
 
     final String deviceToken = _userDeviceToken ?? '';
@@ -62,6 +67,9 @@ class FirestoreService {
           'email': email,
           'fcmToken': deviceToken,
           'userDeviceToken': deviceToken,
+          'termsAccepted': true,
+          'termsAcceptedAt': FieldValue.serverTimestamp(),
+          'termsVersion': '1.0',
           'updatedAt': FieldValue.serverTimestamp(), // Timestamp of last update
         });
         print('User data updated successfully.');
@@ -79,6 +87,9 @@ class FirestoreService {
           'friendsRequests': [], // Timestamp of record creation
           'blockUsers': [], // Timestamp of record creation
           'savedProposal': [], // Timestamp of record creation
+          'termsAccepted': true,
+          'termsAcceptedAt': FieldValue.serverTimestamp(),
+          'termsVersion': '1.0',
         });
         print('User data added successfully.');
       }
@@ -90,6 +101,7 @@ class FirestoreService {
       UserData.userDeviceToken = deviceToken;
     } catch (e) {
       print('Error saving or updating user data: $e');
+      rethrow;
     }
   }
 

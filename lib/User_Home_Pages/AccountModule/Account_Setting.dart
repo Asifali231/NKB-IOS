@@ -8,6 +8,7 @@ import 'package:nikah_blessing/Packages_Module/allPackagesModule.dart';
 import 'package:nikah_blessing/UpdateProfile/UpdateFilters.dart';
 import 'package:nikah_blessing/User_Home_Pages/AccountModule/PrivacyPolicyPage.dart';
 import 'package:nikah_blessing/User_Home_Pages/AccountModule/PolicyPage.dart';
+import 'package:nikah_blessing/theme/app_brand_colors.dart';
 import 'package:quickalert/quickalert.dart';
 
 import 'UserDeletion.dart';
@@ -480,15 +481,7 @@ class _Account_SettingState extends State<Account_Setting> {
                       margin: const EdgeInsets.symmetric(horizontal: 14),
                       padding: const EdgeInsets.fromLTRB(22, 24, 22, 28),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            const Color(0xFF5724C5).withOpacity(0.95),
-                            const Color(0xFF9B51E0).withOpacity(0.92),
-                            const Color(0xFFE66BA6).withOpacity(0.9),
-                          ],
-                        ),
+                        gradient: AppBrandColors.brandGradient,
                         borderRadius: BorderRadius.circular(30),
                         boxShadow: [
                           BoxShadow(

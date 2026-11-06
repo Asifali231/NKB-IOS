@@ -1,4 +1,3 @@
-import 'package:currency_input_field/currency_input_field.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:nikah_blessing/DataClass/UserData.dart';
@@ -470,7 +469,7 @@ class _Profession_PageState extends State<Profession_Page> {
       }
 
 
-      if(SelectedProfession != null &&  SelectedJobCountry != null && DisTextEditorController.text != "") {
+      if (DisTextEditorController.text != "") {
 
         UserData.Profession = SelectedProfession;
         UserData.JobCountry = SelectedJobCountry;

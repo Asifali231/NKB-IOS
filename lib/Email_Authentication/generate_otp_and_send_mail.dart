@@ -9,6 +9,7 @@ class GenerateOtpAndSendMail {
   static const Duration _otpValidity = Duration(minutes: 10);
   String _otp = '';
   DateTime? _otpExpiresAt;
+  bool hasAcceptedTerms = false;
 
   String generateOtp() {
     final random = Random.secure();

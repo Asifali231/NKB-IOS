@@ -22,16 +22,25 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.nikahblessing.marriagebeauro.nikahBlessing</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.582571190650-pm6kdsrc0hqjkfqd5s3nt8ctb9is9tst</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>We need access to your camera for face verification</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>We may save selected images during your profile and verification flow.</string>
+	<string>Use the camera to take profile photos and complete face verification.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>We need access to your photos so you can choose profile pictures.</string>
+	<string>Select profile photos, verification documents, or payment proof from your photo library.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

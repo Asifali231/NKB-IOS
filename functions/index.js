@@ -447,6 +447,7 @@ async function updateUserPackage(uid, pkgName) {
       ChatCredit: (userData.ChatCredit || 0) + pkgData.ChatCredit,
       DailyProfiles: (userData.DailyProfiles || 0) + pkgData.DailyProfiles,
       PackageExpiry: futureDate.toISOString(),
+      iosSubscription: admin.firestore.FieldValue.delete(),
     });
 
     await db
@@ -459,6 +460,7 @@ async function updateUserPackage(uid, pkgName) {
           ChatCredit: (userData.ChatCredit || 0) + pkgData.ChatCredit,
           DailyProfiles: (userData.DailyProfiles || 0) + pkgData.DailyProfiles,
           PackageExpiry: futureDate.toISOString(),
+          iosSubscription: admin.firestore.FieldValue.delete(),
         });
 
     if (userData.fcmToken) {
@@ -1343,3 +1345,275 @@ exports.jazzCashReturnUrl = functions.https.onRequest(async (req, res) => {
     `);
   }
 });
+
+const IOS_SUBSCRIPTION_PRODUCTS = new Set([
+  "nikahblessing_monthly",
+  "nikahblessing_3month",
+  "nikahblessing_yearly",
+]);
+const IOS_PREMIUM_PACKAGE = "Premium";
+const IOS_PREMIUM_ENTITLEMENT = "premium";
+
+async function getRevenueCatSubscription(userId) {
+  const apiKey = process.env.REVENUECAT_API_KEY;
+  if (!apiKey) {
+    throw new Error("REVENUECAT_API_KEY is not configured.");
+  }
+
+  const response = await axios.get(
+      `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(userId)}`,
+      {
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 20000,
+      },
+  );
+  const subscriber = response.data?.subscriber || {};
+  const entitlement = subscriber.entitlements?.[IOS_PREMIUM_ENTITLEMENT];
+  if (!entitlement ||
+      !IOS_SUBSCRIPTION_PRODUCTS.has(entitlement.product_identifier)) {
+    return {isPremium: false};
+  }
+
+  const expiresAt = entitlement.expires_date ?
+    Date.parse(entitlement.expires_date) : null;
+  const isPremium = expiresAt === null ||
+      (Number.isFinite(expiresAt) && expiresAt > Date.now());
+  return {
+    isPremium,
+    productId: entitlement.product_identifier,
+  };
+}
+
+async function synchronizeIosPremiumPackage(userId, subscription) {
+  const db = admin.firestore();
+  const userRef = db.collection("users").doc(userId);
+
+  await db.runTransaction(async (transaction) => {
+    const userSnapshot = await transaction.get(userRef);
+    if (!userSnapshot.exists) {
+      throw new functions.https.HttpsError(
+          "not-found",
+          "The signed-in user profile was not found.",
+      );
+    }
+
+    const userData = userSnapshot.data() || {};
+    const country = String(userData.JobCountry || "").trim();
+    const gender = String(userData.Gender || "").trim();
+    let proposalRef;
+    let proposalSnapshot;
+
+    if (country && gender) {
+      proposalRef = db
+          .collection("proposals")
+          .doc(country)
+          .collection(gender)
+          .doc(userId);
+      proposalSnapshot = await transaction.get(proposalRef);
+    }
+
+    const currentSubscription = userData.iosSubscription;
+    if (subscription.isPremium) {
+      const previousPackageName =
+          currentSubscription?.source === "revenuecat" ?
+            currentSubscription.previousPackageName :
+            userData.PackageSubscribed || "Free";
+      const proposalData = proposalSnapshot?.exists ?
+        proposalSnapshot.data() || {} : {};
+      const previousProposalPackageName =
+          currentSubscription?.source === "revenuecat" ?
+            currentSubscription.previousProposalPackageName :
+            proposalData.PackageSubscribed || userData.PackageSubscribed || "Free";
+
+      transaction.update(userRef, {
+        PackageSubscribed: IOS_PREMIUM_PACKAGE,
+        iosSubscription: {
+          source: "revenuecat",
+          productId: subscription.productId,
+          previousPackageName,
+          previousProposalPackageName,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+      });
+      if (proposalRef && proposalSnapshot.exists) {
+        transaction.update(proposalRef, {
+          PackageSubscribed: IOS_PREMIUM_PACKAGE,
+        });
+      }
+    } else if (currentSubscription?.source === "revenuecat") {
+      transaction.update(userRef, {
+        PackageSubscribed: currentSubscription.previousPackageName || "Free",
+        iosSubscription: admin.firestore.FieldValue.delete(),
+      });
+      if (proposalRef && proposalSnapshot.exists) {
+        transaction.update(proposalRef, {
+          PackageSubscribed:
+              currentSubscription.previousProposalPackageName ||
+              currentSubscription.previousPackageName ||
+              "Free",
+        });
+      }
+    }
+  });
+}
+
+async function syncRevenueCatForUser(userId) {
+  const subscription = await getRevenueCatSubscription(userId);
+  await synchronizeIosPremiumPackage(userId, subscription);
+  return subscription.isPremium;
+}
+
+exports.syncRevenueCatSubscription = functions
+    .runWith({secrets: ["REVENUECAT_API_KEY"]})
+    .https.onCall(async (data, context) => {
+      if (!context.auth) {
+        throw new functions.https.HttpsError(
+            "unauthenticated",
+            "Sign in before synchronizing a subscription.",
+        );
+      }
+
+      if (context.auth.uid.startsWith("$RCAnonymousID")) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "A Firebase account is required for subscription synchronization.",
+        );
+      }
+
+      try {
+        return {isPremium: await syncRevenueCatForUser(context.auth.uid)};
+      } catch (error) {
+        if (error instanceof functions.https.HttpsError) throw error;
+        console.error("RevenueCat subscription synchronization failed:", error);
+        throw new functions.https.HttpsError(
+            "internal",
+            "The subscription could not be synchronized. Please try again.",
+        );
+      }
+    });
+
+exports.revenueCatWebhook = functions
+    .runWith({
+      secrets: ["REVENUECAT_API_KEY", "REVENUECAT_WEBHOOK_AUTHORIZATION"],
+    })
+    .https.onRequest(async (req, res) => {
+      if (req.method !== "POST") {
+        res.status(405).send("Method not allowed.");
+        return;
+      }
+      const expectedAuthorization =
+          process.env.REVENUECAT_WEBHOOK_AUTHORIZATION;
+      if (!expectedAuthorization ||
+          req.get("authorization") !== expectedAuthorization) {
+        res.status(401).send("Unauthorized.");
+        return;
+      }
+
+      const userId = req.body?.event?.app_user_id;
+      if (typeof userId !== "string" ||
+          !userId.trim() ||
+          userId.startsWith("$RCAnonymousID")) {
+        res.status(400).send("A Firebase app user ID is required.");
+        return;
+      }
+
+      try {
+        await syncRevenueCatForUser(userId);
+        res.status(200).send("Subscription synchronized.");
+      } catch (error) {
+        console.error("RevenueCat webhook synchronization failed:", error);
+        res.status(500).send("Subscription synchronization failed.");
+      }
+    });
+
+async function deleteUserAccount(data, context) {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Sign in before deleting your account.",
+    );
+  }
+
+  const authTime = Number(context.auth.token.auth_time);
+  const now = Math.floor(Date.now() / 1000);
+  if (!Number.isFinite(authTime) || now - authTime > 5 * 60 ||
+      authTime > now + 60) {
+    throw new functions.https.HttpsError(
+        "failed-precondition",
+        "Please sign in again before deleting your account.",
+    );
+  }
+
+  const userId = context.auth.uid;
+
+  try {
+    const db = admin.firestore();
+    const userRef = db.collection("users").doc(userId);
+    const userSnapshot = await userRef.get();
+    const userData = userSnapshot.data() || {};
+    const country = String(userData.JobCountry || "").trim();
+    const gender = String(userData.Gender || "").trim();
+    const chatSnapshot = await db.collection("Chats")
+        .where("users", "array-contains", userId)
+        .get();
+    const paymentSnapshot = await db.collection("payments")
+        .where("userId", "==", userId)
+        .get();
+    const transactionSnapshot = await db.collection("transactions")
+        .where("userId", "==", userId)
+        .get();
+    const bucket = admin.storage().bucket();
+    const fileGroups = await Promise.all([
+      bucket.getFiles({prefix: `${userId}/`}),
+      bucket.getFiles({prefix: `payment_proofs/${userId}/`}),
+    ]);
+    const files = [...new Set(fileGroups.flatMap(([group]) => group))];
+    const cleanupTasks = [
+      db.recursiveDelete(userRef),
+      db.collection("notifications").doc(userId).delete(),
+      db.collection("fcmTokens").doc(userId).delete(),
+      ...chatSnapshot.docs.map((chat) => db.recursiveDelete(chat.ref)),
+      ...paymentSnapshot.docs.map((payment) => payment.ref.delete()),
+      ...transactionSnapshot.docs.map((transaction) =>
+        transaction.ref.delete(),
+      ),
+      ...files.map((file) => file.delete()),
+    ];
+
+    if (admin.app().options.databaseURL) {
+      cleanupTasks.push(
+          admin.database().ref(`users/${userId}`).remove(),
+      );
+    } else {
+      console.info("Realtime Database is not configured; skipped cleanup.");
+    }
+
+    if (country && gender) {
+      cleanupTasks.push(
+          db.recursiveDelete(
+              db.collection("proposals")
+                  .doc(country)
+                  .collection(gender)
+                  .doc(userId),
+          ),
+      );
+    }
+
+    await Promise.all(cleanupTasks);
+    await admin.auth().deleteUser(userId);
+    return {deleted: true};
+  } catch (error) {
+    console.error("Account deletion failed:", error);
+    throw new functions.https.HttpsError(
+        "internal",
+        "Account data could not be fully deleted. Please try again or contact support.",
+    );
+  }
+}
+
+exports.deleteUserAccount = functions
+    .runWith({timeoutSeconds: 540, memory: "1GB"})
+    .https.onCall(deleteUserAccount);

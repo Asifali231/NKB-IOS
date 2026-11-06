@@ -1,7 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:nikah_blessing/Make_Profile/Profile_Questionnaire_main.dart';
 import 'package:nikah_blessing/User_Home_Pages/user_main.dart';
 import 'package:nikah_blessing/onBoardingScreens.dart';
 

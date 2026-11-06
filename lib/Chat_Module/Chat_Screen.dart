@@ -1,9 +1,17 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_bubble/chat_bubble.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:nikah_blessing/DataClass/MyData_Class.dart';
+import 'package:nikah_blessing/FirebaseOperation/FirebaseOperations.dart';
+import 'package:nikah_blessing/FirebaseOperation/payment_visibility_service.dart';
+import 'package:nikah_blessing/Chat_Module/free_chat_message_service.dart';
+import 'package:nikah_blessing/Chat_Module/premium_messaging_dialog.dart';
+import 'package:nikah_blessing/Chat_Module/chat_time_utils.dart';
+import 'package:nikah_blessing/FirebaseOperation/report_user_dialog.dart';
 import 'package:nikah_blessing/Notifications/NotificationPage.dart';
 
 class Chat_Screen extends StatefulWidget {
@@ -26,7 +34,6 @@ class _Chat_ScreenState extends State<Chat_Screen> with WidgetsBindingObserver {
   final FocusNode _focusNode = FocusNode();
   final TextEditingController chatMessageController = TextEditingController();
 
-  bool _isKeyboardOpen = false;
   bool _send = false;
   Stream<QuerySnapshot>? _chatMessageStream;
 
@@ -36,7 +43,6 @@ class _Chat_ScreenState extends State<Chat_Screen> with WidgetsBindingObserver {
     myUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
     _initializeChat();
     WidgetsBinding.instance.addObserver(this);
-    _focusNode.addListener(_onFocusChange);
   }
 
   void _initializeChat() async {
@@ -268,7 +274,58 @@ class _Chat_ScreenState extends State<Chat_Screen> with WidgetsBindingObserver {
           ),
         ],
       ),
+      actions: [
+        PopupMenuButton<String>(
+          tooltip: 'Chat safety options',
+          enabled: personId.isNotEmpty,
+          onSelected: _handleSafetyAction,
+          itemBuilder: (context) => const [
+            PopupMenuItem(value: 'report', child: Text('Report user')),
+            PopupMenuItem(value: 'block', child: Text('Block user')),
+          ],
+        ),
+      ],
     );
+  }
+
+  Future<void> _handleSafetyAction(String action) async {
+    if (personId.isEmpty || personId == myUserId) return;
+
+    if (action == 'report') {
+      await showReportUserDialog(context, reportedUserId: personId);
+      return;
+    }
+
+    final shouldBlock = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Block this user?'),
+        content: const Text(
+          'This user will no longer appear in your matches.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Block'),
+          ),
+        ],
+      ),
+    );
+    if (shouldBlock != true || !mounted) return;
+
+    final blocked = await FirebaseOperations().blockUser(personId);
+    if (!mounted) return;
+    if (blocked) {
+      Navigator.of(context).pop();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not block this user.')),
+      );
+    }
   }
 
   Widget _buildMessageList() {
@@ -296,10 +353,7 @@ class _Chat_ScreenState extends State<Chat_Screen> with WidgetsBindingObserver {
 
         for (var doc in snapshot.data!.docs) {
           var message = doc;
-          int timestamp = (message['time'] / 1000)
-              .round(); // Convert microseconds to milliseconds
-          DateTime messageDateTime =
-              DateTime.fromMillisecondsSinceEpoch(timestamp);
+          final messageDateTime = chatDateTimeFrom(message.data()?['time']);
           String messageDate = getDateDividerText(messageDateTime);
 
           if (currentDate != messageDate) {
@@ -340,8 +394,7 @@ class _Chat_ScreenState extends State<Chat_Screen> with WidgetsBindingObserver {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        formatTime((message['time'] / 1000).round()),
-                        // Convert microseconds to milliseconds
+                        formatChatTime(messageDateTime),
                         style: TextStyle(
                           color: isSentByMe ? Colors.white70 : Colors.grey,
                           fontSize: 11,
@@ -435,40 +488,62 @@ class _Chat_ScreenState extends State<Chat_Screen> with WidgetsBindingObserver {
     );
   }
 
-  void _onFocusChange() {
-    setState(() => _isKeyboardOpen = _focusNode.hasFocus);
-  }
-
   Future<void> sendMessage() async {
-    if (chatMessageController.text.isEmpty) return;
+    final message = chatMessageController.text.trim();
+    if (message.isEmpty) return;
 
     NotificationPage notificationPage = NotificationPage();
 
-    final message = chatMessageController.text.trim();
-    chatMessageController.clear();
-    setState(() => _send = false);
-
     try {
-      int timestamp = Timestamp.now().microsecondsSinceEpoch;
+      final enforceFreeMessageLimit = Platform.isIOS &&
+          !await PaymentVisibilityService.arePremiumFeaturesUnlocked();
+      if (!enforceFreeMessageLimit) {
+        chatMessageController.clear();
+        if (mounted) setState(() => _send = false);
+      }
 
-      await FirebaseFirestore.instance
+      final timestamp = Timestamp.now().microsecondsSinceEpoch;
+      final chatReference = FirebaseFirestore.instance
           .collection("Chats")
-          .doc(widget.chatRoomId)
-          .collection("chats")
-          .add({
+          .doc(widget.chatRoomId);
+      final messageReference = chatReference.collection("chats").doc();
+      final messageData = {
         "message": message,
         "sentBy": myUserId,
         "time": timestamp,
-      });
-
-      await FirebaseFirestore.instance
-          .collection("Chats")
-          .doc(widget.chatRoomId)
-          .update({
+      };
+      final chatUpdate = {
         'lastChat': message,
         'lastChatTime': timestamp,
         'UnreadMsg.$personId': FieldValue.increment(1),
-      });
+      };
+
+      if (enforceFreeMessageLimit) {
+        final userId = FirebaseAuth.instance.currentUser?.uid;
+        if (userId == null) {
+          throw StateError('Sign in before sending a message.');
+        }
+        final wasSent = await FreeChatMessageService.sendFirstMessage(
+          userReference:
+              FirebaseFirestore.instance.collection('users').doc(userId),
+          chatReference: chatReference,
+          messageReference: messageReference,
+          messageData: messageData,
+          chatUpdate: chatUpdate,
+        );
+        if (!wasSent) {
+          await showPremiumMessagingUpgrade(context);
+          return;
+        }
+      } else {
+        await messageReference.set(messageData);
+        await chatReference.update(chatUpdate);
+      }
+
+      if (enforceFreeMessageLimit) {
+        chatMessageController.clear();
+        if (mounted) setState(() => _send = false);
+      }
 
       notificationPage.sendNotification(
           "${MyData_Class.MyMapData["name"]} sent you a message",
@@ -508,21 +583,8 @@ class _Chat_ScreenState extends State<Chat_Screen> with WidgetsBindingObserver {
     }
   }
 
-  String formatTime(int timestamp) {
-    final time = DateTime.fromMillisecondsSinceEpoch(timestamp);
-    final hour = time.hour > 12
-        ? time.hour - 12
-        : time.hour == 0
-            ? 12
-            : time.hour;
-    final minute = time.minute.toString().padLeft(2, '0');
-    final period = time.hour >= 12 ? 'PM' : 'AM';
-    return "$hour:$minute $period";
-  }
-
   @override
   void dispose() {
-    _focusNode.removeListener(_onFocusChange);
     _focusNode.dispose();
     chatMessageController.dispose();
     _scrollController.dispose();

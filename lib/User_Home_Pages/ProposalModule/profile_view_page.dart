@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui';
 import 'package:blur/blur.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -9,7 +10,11 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:nikah_blessing/Email_Authentication/EmailAuth_Main.dart';
 import 'package:nikah_blessing/FirebaseOperation/FirebaseOperations.dart';
 import 'package:nikah_blessing/FirebaseOperation/payment_visibility_service.dart';
+import 'package:nikah_blessing/FirebaseOperation/report_user_dialog.dart';
+import 'package:nikah_blessing/Chat_Module/free_chat_message_service.dart';
+import 'package:nikah_blessing/Chat_Module/premium_messaging_dialog.dart';
 import 'package:nikah_blessing/Packages_Module/allPackagesModule.dart';
+import 'package:nikah_blessing/theme/app_brand_colors.dart';
 import 'package:nikah_blessing/User_Home_Pages/user_main.dart';
 import 'package:quickalert/quickalert.dart';
 import 'package:vibration/vibration.dart';
@@ -486,7 +491,7 @@ class _profile_view_pageState extends State<profile_view_page>
   }
 
   Future<bool> _hasUnlockedPremiumAccess() async {
-    if (_isPaidPlan()) {
+    if (!Platform.isIOS && _isPaidPlan()) {
       return true;
     }
 
@@ -527,430 +532,34 @@ class _profile_view_pageState extends State<profile_view_page>
     );
   }
 
-  Widget _buildUpgradePill(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: const Color(0xFFFF6F9C)),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUpgradeFeature({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.07)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 42,
-            height: 42,
+  void _showSendRequestSnackBar(String message) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+          behavior: SnackBarBehavior.floating,
+          content: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFF93B8), Color(0xFFFF5E8D)],
-              ),
+              gradient: AppBrandColors.brandGradient,
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: const Color(0xFF411024), size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.72),
-                    fontSize: 13,
-                    height: 1.35,
-                  ),
-                ),
-              ],
+            child: Text(
+              message,
+              style: const TextStyle(color: Colors.white),
             ),
           ),
-        ],
-      ),
-    );
+        ),
+      );
   }
 
-  Future<bool> _showMessagingUpgradeDialog() async {
-    if (!mounted) return false;
-    final isHidden = await PaymentVisibilityService.arePaymentsHidden();
-    if (!mounted) return false;
-
-    if (isHidden) {
-      _showInlineMessage('Package upgrades are currently hidden.');
-      return false;
-    }
-
-    final result = await showGeneralDialog<bool>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Messaging upgrade',
-      barrierColor: Colors.black.withOpacity(0.72),
-      transitionDuration: const Duration(milliseconds: 320),
-      pageBuilder: (dialogContext, animation, secondaryAnimation) {
-        return SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              child: Material(
-                color: Colors.transparent,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 430),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(32),
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFF311423),
-                              Color(0xFF25152A),
-                              Color(0xFF17131F),
-                            ],
-                          ),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.10),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.45),
-                              blurRadius: 36,
-                              offset: const Offset(0, 18),
-                            ),
-                          ],
-                        ),
-                        child: Stack(
-                          children: [
-                            Positioned(
-                              top: -30,
-                              right: -10,
-                              child: Container(
-                                width: 120,
-                                height: 120,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color:
-                                      const Color(0xFFFF6F9C).withOpacity(0.18),
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              bottom: -40,
-                              left: -20,
-                              child: Container(
-                                width: 140,
-                                height: 140,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color:
-                                      const Color(0xFFFF4F79).withOpacity(0.14),
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(24, 24, 24, 22),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        width: 64,
-                                        height: 64,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          gradient: const LinearGradient(
-                                            colors: [
-                                              Color(0xFFFF98BD),
-                                              Color(0xFFFF5B89),
-                                            ],
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: const Color(0xFFFF5B89)
-                                                  .withOpacity(0.30),
-                                              blurRadius: 18,
-                                              offset: const Offset(0, 8),
-                                            ),
-                                          ],
-                                        ),
-                                        child: const Icon(
-                                          Icons.chat_bubble_rounded,
-                                          color: Color(0xFF451126),
-                                          size: 30,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      InkWell(
-                                        borderRadius: BorderRadius.circular(18),
-                                        onTap: () => Navigator.of(dialogContext)
-                                            .pop(false),
-                                        child: Container(
-                                          width: 38,
-                                          height: 38,
-                                          decoration: BoxDecoration(
-                                            color:
-                                                Colors.white.withOpacity(0.08),
-                                            borderRadius:
-                                                BorderRadius.circular(18),
-                                          ),
-                                          child: const Icon(
-                                            Icons.close_rounded,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 18),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 7,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFFA0C1)
-                                          .withOpacity(0.16),
-                                      borderRadius: BorderRadius.circular(999),
-                                      border: Border.all(
-                                        color: const Color(0xFFFFA0C1)
-                                            .withOpacity(0.22),
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      'Premium Messaging',
-                                      style: TextStyle(
-                                        color: Color(0xFFFFA9C8),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.3,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  const Text(
-                                    'Upgrade to start meaningful conversations',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w800,
-                                      height: 1.15,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    'Unlock chat access, connect faster with serious matches, and move from browsing to real conversations.',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.74),
-                                      fontSize: 14,
-                                      height: 1.5,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  Wrap(
-                                    spacing: 10,
-                                    runSpacing: 10,
-                                    children: [
-                                      _buildUpgradePill(
-                                        Icons.lock_open_rounded,
-                                        'Direct messaging',
-                                      ),
-                                      _buildUpgradePill(
-                                        Icons.workspace_premium_rounded,
-                                        'Premium plans',
-                                      ),
-                                      _buildUpgradePill(
-                                        Icons.verified_user_rounded,
-                                        'Secure checkout',
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 22),
-                                  _buildUpgradeFeature(
-                                    icon: Icons.mark_chat_read_rounded,
-                                    title: 'Chat without the paywall feeling',
-                                    subtitle:
-                                        'Open conversations instantly from profiles and respond while the interest is fresh.',
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _buildUpgradeFeature(
-                                    icon: Icons.favorite_rounded,
-                                    title: 'Reach more serious matches',
-                                    subtitle:
-                                        'Paid plans are designed for users who are ready to connect, reply, and move forward.',
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _buildUpgradeFeature(
-                                    icon: Icons.auto_awesome_rounded,
-                                    title: 'A cleaner premium experience',
-                                    subtitle:
-                                        'Explore packages built for better visibility, stronger engagement, and smoother matchmaking.',
-                                  ),
-                                  const SizedBox(height: 22),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: OutlinedButton(
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor: Colors.white,
-                                            side: BorderSide(
-                                              color: Colors.white
-                                                  .withOpacity(0.18),
-                                            ),
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 16,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(18),
-                                            ),
-                                          ),
-                                          onPressed: () => Navigator.of(
-                                            dialogContext,
-                                          ).pop(false),
-                                          child: const Text(
-                                            'Maybe later',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: DecoratedBox(
-                                          decoration: BoxDecoration(
-                                            gradient: const LinearGradient(
-                                              colors: [
-                                                Color(0xFFFF7DAA),
-                                                Color(0xFFFF4E7B),
-                                              ],
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(18),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: const Color(0xFFFF4E7B)
-                                                    .withOpacity(0.28),
-                                                blurRadius: 18,
-                                                offset: const Offset(0, 10),
-                                              ),
-                                            ],
-                                          ),
-                                          child: ElevatedButton(
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  Colors.transparent,
-                                              shadowColor: Colors.transparent,
-                                              foregroundColor: Colors.white,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                vertical: 16,
-                                              ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(18),
-                                              ),
-                                            ),
-                                            onPressed: () => Navigator.of(
-                                              dialogContext,
-                                            ).pop(true),
-                                            child: const Text(
-                                              'See Upgrade Plans',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w800,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'Choose the plan that fits your journey and unlock messaging right away.',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.56),
-                                      fontSize: 12,
-                                      height: 1.4,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final curved = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        );
-        return FadeTransition(
-          opacity: curved,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.92, end: 1.0).animate(curved),
-            child: child,
-          ),
-        );
-      },
-    );
-
-    return result ?? false;
+  Future<bool> _showMessagingUpgradeDialog() {
+    return showPremiumMessagingDialog(context);
   }
 
   Future<void> _openPackagesForMessaging() async {
@@ -978,80 +587,84 @@ class _profile_view_pageState extends State<profile_view_page>
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: SafeArea(
-        child: Scaffold(
-          body: Container(
-            decoration: BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage("assets/QAbg.png"),
-                fit: BoxFit.cover,
+      child: ColoredBox(
+        color: Color(0xFFFFE4EF),
+        child: SafeArea(
+          bottom: false,
+          child: Scaffold(
+            backgroundColor: Color(0xFFFFE4EF),
+            body: Container(
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage("assets/QAbg.png"),
+                  fit: BoxFit.cover,
+                ),
               ),
-            ),
-            child: userData == null
-                ? _buildHeartLoading()
-                : Stack(
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        height: MediaQuery.of(context).size.height * 0.65,
-                        child: PageView.builder(
-                          controller: _pageController,
-                          scrollDirection: Axis.horizontal,
-                          itemCount: imageUrls.length,
-                          itemBuilder: (context, index) {
-                            return Container(
-                              margin: EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 10),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(25),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.3),
-                                    blurRadius: 15,
-                                    spreadRadius: 2,
-                                    offset: Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(25),
-                                child: Stack(
-                                  children: [
-                                    CachedNetworkImage(
-                                      width: MediaQuery.of(context).size.width,
-                                      height: double.infinity,
-                                      imageUrl: imageUrls[index],
-                                      placeholder: (context, url) => Container(
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                            colors: [
-                                              Colors.pink.withOpacity(0.3),
-                                              Colors.purple.withOpacity(0.3),
-                                            ],
-                                          ),
-                                        ),
-                                        child:
-                                            Center(child: _buildHeartLoading()),
-                                      ),
-                                      errorWidget: (context, url, error) =>
-                                          Container(
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              Colors.grey[300]!,
-                                              Colors.grey[500]!
-                                            ],
-                                          ),
-                                        ),
-                                        child: Center(
-                                          child: Icon(Icons.error,
-                                              color: Colors.white, size: 50),
-                                        ),
-                                      ),
-                                      fit: BoxFit.cover,
+              child: userData == null
+                  ? _buildHeartLoading()
+                  : Stack(
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          height: MediaQuery.of(context).size.height * 0.65,
+                          child: PageView.builder(
+                            controller: _pageController,
+                            scrollDirection: Axis.horizontal,
+                            itemCount: imageUrls.length,
+                            itemBuilder: (context, index) {
+                              return Container(
+                                margin: EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 10),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(25),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.3),
+                                      blurRadius: 15,
+                                      spreadRadius: 2,
+                                      offset: Offset(0, 8),
                                     ),
+                                  ],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(25),
+                                  child: Stack(
+                                    children: [
+                                      CachedNetworkImage(
+                                        width: MediaQuery.of(context).size.width,
+                                        height: double.infinity,
+                                        imageUrl: imageUrls[index],
+                                        placeholder: (context, url) => Container(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [
+                                                Colors.pink.withOpacity(0.3),
+                                                Colors.purple.withOpacity(0.3),
+                                              ],
+                                            ),
+                                          ),
+                                          child:
+                                              Center(child: _buildHeartLoading()),
+                                        ),
+                                        errorWidget: (context, url, error) =>
+                                            Container(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                Colors.grey[300]!,
+                                                Colors.grey[500]!
+                                              ],
+                                            ),
+                                          ),
+                                          child: Center(
+                                            child: Icon(Icons.error,
+                                                color: Colors.white, size: 50),
+                                          ),
+                                        ),
+                                        fit: BoxFit.cover,
+                                      ),
                                     if (_isProfileImgBlur())
                                       Positioned.fill(
                                         child: BackdropFilter(
@@ -1071,94 +684,95 @@ class _profile_view_pageState extends State<profile_view_page>
                                           ),
                                         ),
                                       ),
-                                    Positioned.fill(
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            begin: Alignment.topCenter,
-                                            end: Alignment.bottomCenter,
-                                            colors: [
-                                              Colors.transparent,
-                                              Colors.black.withOpacity(0.4),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    if (index == 0)
-                                      Positioned(
-                                        bottom: 25,
-                                        left: 20,
+                                      Positioned.fill(
                                         child: Container(
-                                          padding: EdgeInsets.symmetric(
-                                              horizontal: 16, vertical: 8),
                                           decoration: BoxDecoration(
                                             gradient: LinearGradient(
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter,
                                               colors: [
-                                                Colors.pink.withOpacity(0.9),
-                                                Colors.purple.withOpacity(0.9),
+                                                Colors.transparent,
+                                                Colors.black.withOpacity(0.4),
                                               ],
                                             ),
-                                            borderRadius:
-                                                BorderRadius.circular(20),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black
-                                                    .withOpacity(0.3),
-                                                blurRadius: 10,
-                                                offset: Offset(0, 4),
-                                              ),
-                                            ],
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(Icons.search,
-                                                  color: Colors.white,
-                                                  size: 18),
-                                              SizedBox(width: 8),
-                                              Text(
-                                                'Finding For: ${widget.proposalData["FindingFor"] ?? "Self"}',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 14,
-                                                ),
-                                              ),
-                                            ],
                                           ),
                                         ),
                                       ),
-                                  ],
+                                      if (index == 0)
+                                        Positioned(
+                                          bottom: 25,
+                                          left: 20,
+                                          child: Container(
+                                            padding: EdgeInsets.symmetric(
+                                                horizontal: 16, vertical: 8),
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: [
+                                                  Colors.pink.withOpacity(0.9),
+                                                  Colors.purple.withOpacity(0.9),
+                                                ],
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black
+                                                      .withOpacity(0.3),
+                                                  blurRadius: 10,
+                                                  offset: Offset(0, 4),
+                                                ),
+                                              ],
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.search,
+                                                    color: Colors.white,
+                                                    size: 18),
+                                                SizedBox(width: 8),
+                                                Text(
+                                                  'Finding For: ${widget.proposalData["FindingFor"] ?? "Self"}',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                      Positioned(
-                        top: 0.0,
-                        right: 5.0,
-                        child: buttonArrow(context),
-                      ),
-                      Positioned(
-                        top: 70.0,
-                        right: 5.0,
-                        child: sendRequest(context),
-                      ),
-                      Positioned(
-                        top: 140.0,
-                        right: 5.0,
-                        child: chat(context),
-                      ),
-                      Positioned(
-                        top: 0.0,
-                        left: 0.0,
-                        child: block(context),
-                      ),
-                      scroll(),
-                    ],
-                  ),
+                        Positioned(
+                          top: 0.0,
+                          right: 5.0,
+                          child: buttonArrow(context),
+                        ),
+                        Positioned(
+                          top: 70.0,
+                          right: 5.0,
+                          child: sendRequest(context),
+                        ),
+                        Positioned(
+                          top: 140.0,
+                          right: 5.0,
+                          child: chat(context),
+                        ),
+                        Positioned(
+                          top: 0.0,
+                          left: 0.0,
+                          child: block(context),
+                        ),
+                        scroll(),
+                      ],
+                    ),
+            ),
           ),
         ),
       ),
@@ -1171,9 +785,7 @@ class _profile_view_pageState extends State<profile_view_page>
       child: InkWell(
         splashColor: Colors.white.withOpacity(0.5),
         onTap: () async {
-          if (await Vibration.hasVibrator() != null) {
-            Vibration.vibrate(duration: 50);
-          }
+          Vibration.vibrate(duration: 50);
           FirebaseOperations firebaseOperations = new FirebaseOperations();
           if (await firebaseOperations
               .saveProposal(widget.proposalData["uid"])) {
@@ -1215,12 +827,10 @@ class _profile_view_pageState extends State<profile_view_page>
       child: InkWell(
         splashColor: Colors.white.withOpacity(0.5),
         onTap: () async {
-          if (await Vibration.hasVibrator() != null) {
-            Vibration.vibrate(duration: 50);
-          }
+          Vibration.vibrate(duration: 50);
 
           if (!isVerified) {
-            _showInlineMessage(
+            _showSendRequestSnackBar(
               "You can't send request. Your account is not verified yet.",
             );
             return;
@@ -1235,7 +845,7 @@ class _profile_view_pageState extends State<profile_view_page>
           }
 
           if (_isFriend()) {
-            Fluttertoast.showToast(msg: "Already in your friends list");
+            _showSendRequestSnackBar("Already in your friends list");
             return;
           }
 
@@ -1244,9 +854,9 @@ class _profile_view_pageState extends State<profile_view_page>
               widget.proposalData["uid"],
               widget.proposalData["JobCountry"],
               widget.proposalData["Gender"])) {
-            Fluttertoast.showToast(msg: "Friend Request Sent");
+            _showSendRequestSnackBar("Friend Request Sent");
           } else {
-            Fluttertoast.showToast(msg: "An error occurred");
+            _showSendRequestSnackBar("An error occurred");
           }
         },
         child: Container(
@@ -1283,10 +893,24 @@ class _profile_view_pageState extends State<profile_view_page>
       child: InkWell(
         splashColor: Colors.white.withOpacity(0.5),
         onTap: () async {
-          if (await Vibration.hasVibrator() != null) {
-            Vibration.vibrate(duration: 50);
-          }
-          if (!await _hasUnlockedPremiumAccess()) {
+          Vibration.vibrate(duration: 50);
+          if (Platform.isIOS) {
+            try {
+              final hasPremium =
+                  await PaymentVisibilityService.arePremiumFeaturesUnlocked();
+              if (!hasPremium &&
+                  await FreeChatMessageService.hasUsedFreeMessage()) {
+                await showPremiumMessagingUpgrade(context);
+                return;
+              }
+            } catch (error) {
+              debugPrint('Unable to check messaging access: $error');
+              _showInlineMessage(
+                'Unable to check messaging access. Please try again.',
+              );
+              return;
+            }
+          } else if (!await _hasUnlockedPremiumAccess()) {
             final shouldOpenPackages = await _showMessagingUpgradeDialog();
             if (shouldOpenPackages) {
               await _openPackagesForMessaging();
@@ -1331,23 +955,59 @@ class _profile_view_pageState extends State<profile_view_page>
   }
 
   block(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(10.0),
-      child: InkWell(
-        splashColor: Colors.white.withOpacity(0.5),
-        onTap: () async {
-          if (await Vibration.hasVibrator() != null) {
-            Vibration.vibrate(duration: 50);
-          }
-          FirebaseOperations firebaseOperations = new FirebaseOperations();
-          if (await firebaseOperations.blockUser(widget.proposalData["uid"])) {
-            Fluttertoast.showToast(msg: "The User Blocked");
-            Navigator.push(
-                context, MaterialPageRoute(builder: (context) => UserMain()));
+    return PopupMenuButton<String>(
+      tooltip: 'Profile safety options',
+      onSelected: (action) async {
+        if (action == 'report') {
+          await showReportUserDialog(
+            context,
+            reportedUserId: widget.proposalData['uid'].toString(),
+          );
+          return;
+        }
+
+        if (action == 'block') {
+          final shouldBlock = await showDialog<bool>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: const Text('Block this profile?'),
+              content: const Text(
+                'This profile will no longer appear in your matches.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Block'),
+                ),
+              ],
+            ),
+          );
+          if (shouldBlock != true || !mounted) return;
+          Vibration.vibrate(duration: 50);
+          if (await FirebaseOperations()
+              .blockUser(widget.proposalData['uid'].toString())) {
+            Fluttertoast.showToast(msg: 'The User Blocked');
+            if (mounted) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => UserMain()),
+              );
+            }
           } else {
-            Fluttertoast.showToast(msg: "An error occurred");
+            Fluttertoast.showToast(msg: 'Could not block this user.');
           }
-        },
+        }
+      },
+      itemBuilder: (context) => const [
+        PopupMenuItem(value: 'report', child: Text('Report profile')),
+        PopupMenuItem(value: 'block', child: Text('Block profile')),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.all(10.0),
         child: Container(
           clipBehavior: Clip.hardEdge,
           height: 55,

@@ -2,21 +2,17 @@ import 'dart:ui';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:nikah_blessing/FirebaseOperation/FirebaseOperations.dart';
 import 'package:nikah_blessing/User_Home_Pages/ProposalModule/profile_view_page.dart';
-import 'package:quickalert/widgets/quickalert_dialog.dart';
-
-import '../../Make_Profile/Profile_Questionnaire_main.dart';
 
 class ProposalCard extends StatelessWidget {
   final Map<String, dynamic> proposalData;
 
   ProposalCard({required this.proposalData});
 
-  Map<String, String> countriesCurrencies = {
+  final Map<String, String> countriesCurrencies = {
     'Afghanistan': 'afn',
     'Albania': 'all',
     'Algeria': 'dzd',
@@ -222,7 +218,6 @@ class ProposalCard extends StatelessWidget {
 
     if (user != null) {
       // User is signed in
-      String uid = user.uid;
       // ...
     } else {
       // No user is signed in.
@@ -305,8 +300,7 @@ class ProposalCard extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: proposalData != null &&
-                            proposalData['ProfileImageUrls'] != null &&
+                    child: proposalData['ProfileImageUrls'] != null &&
                             proposalData['ProfileImageUrls'].length > 1
                         ? Stack(
                             children: [

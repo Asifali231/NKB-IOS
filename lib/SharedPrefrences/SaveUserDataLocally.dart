@@ -38,20 +38,20 @@ class SaveUserDataLocally {
   Map<String, dynamic> _convertTimestamps(Map<dynamic, dynamic> data) {
     return data.map((key, value) {
       if (value is Timestamp) {
-        return MapEntry(key as String, value.toDate().toIso8601String()); // Convert to ISO string
+        return MapEntry(key, value.toDate().toIso8601String()); // Convert to ISO string
       } else if (value is Map) {
-        return MapEntry(key as String, _convertTimestamps(value as Map<dynamic, dynamic>)); // Recursively convert nested maps
+        return MapEntry(key, _convertTimestamps(value)); // Recursively convert nested maps
       } else if (value is List) {
         // Handle lists by converting their elements if they are maps
         List<dynamic> convertedList = value.map((item) {
           if (item is Map) {
-            return _convertTimestamps(item as Map<dynamic, dynamic>);
+            return _convertTimestamps(item);
           }
           return item; // Leave other types as is
         }).toList();
-        return MapEntry(key as String, convertedList);
+        return MapEntry(key, convertedList);
       }
-      return MapEntry(key as String, value); // Leave other types as is
+      return MapEntry(key, value); // Leave other types as is
     });
   }
 

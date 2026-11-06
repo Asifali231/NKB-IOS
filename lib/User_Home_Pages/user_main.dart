@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:nikah_blessing/Payement_Module/in_app_purchase_service.dart';
 import 'package:nikah_blessing/Admin_Module/AdminUpdateUserPackage.dart';
 import 'package:nikah_blessing/Chat_Module/User_Chat_Page.dart';
 import 'package:nikah_blessing/DataClass/MyData_Class.dart';
@@ -62,6 +65,8 @@ class _UserMainState extends State<UserMain> {
       return;
     }
 
+    await InAppPurchaseService.instance.loadCachedEntitlement();
+    unawaited(InAppPurchaseService.instance.refreshEntitlement());
     await _initializeData();
     if (!mounted) return;
 

@@ -1,11 +1,15 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:nikah_blessing/DataClass/UserData.dart';
-import 'package:nikah_blessing/User_Home_Pages/ProposalModule/profile_view_page.dart';
+import 'package:nikah_blessing/FirebaseOperation/payment_visibility_service.dart';
+import 'package:nikah_blessing/Chat_Module/free_chat_message_service.dart';
+import 'package:nikah_blessing/Chat_Module/premium_messaging_dialog.dart';
+import 'package:nikah_blessing/Chat_Module/chat_time_utils.dart';
 import 'Chat_Screen.dart';
 
 class User_Chat_Page extends StatefulWidget {
@@ -73,7 +77,7 @@ class _User_Chat_PageState extends State<User_Chat_Page>
   Future<List<String>> getFriendsList() async {
     final userDoc =
         await FirebaseFirestore.instance.collection('users').doc(userId).get();
-    final userData = userDoc.data() as Map<String, dynamic>?;
+    final userData = userDoc.data();
     final friendsList =
         List<String>.from((userData?['friends'] as List?) ?? const []);
     return friendsList;
@@ -110,6 +114,36 @@ class _User_Chat_PageState extends State<User_Chat_Page>
         .get();
     Map<String, dynamic> us = userDoc.data() as Map<String, dynamic>;
     return us;
+  }
+
+  Future<void> _openChat(String chatRoomId) async {
+    if (Platform.isIOS) {
+      try {
+        if (!await PaymentVisibilityService.arePremiumFeaturesUnlocked() &&
+            await FreeChatMessageService.hasUsedFreeMessage()) {
+          await showPremiumMessagingUpgrade(context);
+          return;
+        }
+      } catch (error) {
+        debugPrint('Unable to check messaging access: $error');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Unable to check messaging access. Please try again.'),
+          ),
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Chat_Screen(chatRoomId: chatRoomId),
+      ),
+    );
   }
 
   @override
@@ -525,16 +559,12 @@ class _User_Chat_PageState extends State<User_Chat_Page>
                               int unreadMsg = data['UnreadMsg'][userId] ?? 0;
                               String lastMsg =
                                   data['lastChat'] ?? "waiting ...";
-                              int unixTimestamp = data['lastChatTime'] ?? 0;
-                              if (unixTimestamp > 10000000000000) {
-                                unixTimestamp = (unixTimestamp / 1000).round();
-                              }
-                              DateTime lastChatDateTime =
-                                  DateTime.fromMillisecondsSinceEpoch(
-                                      unixTimestamp);
-                              DateTime now = DateTime.now();
-                              String lastMsgTime =
-                                  _formatLastMessageTime(lastChatDateTime, now);
+                              final lastChatDateTime =
+                                  chatDateTimeFrom(data['lastChatTime']);
+                              final lastMsgTime = formatConversationTime(
+                                lastChatDateTime,
+                                DateTime.now(),
+                              );
 
                               return AnimatedContainer(
                                 duration: Duration(milliseconds: 300),
@@ -545,16 +575,9 @@ class _User_Chat_PageState extends State<User_Chat_Page>
                                   color: Colors.transparent,
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(20),
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => Chat_Screen(
-                                            chatRoomId: data["chatRoomID"],
-                                          ),
-                                        ),
-                                      );
-                                    },
+                                    onTap: () => _openChat(
+                                      data["chatRoomID"].toString(),
+                                    ),
                                     child: Container(
                                       padding: EdgeInsets.all(16),
                                       decoration: BoxDecoration(
@@ -717,19 +740,4 @@ class _User_Chat_PageState extends State<User_Chat_Page>
     );
   }
 
-  String _formatLastMessageTime(DateTime lastChatDateTime, DateTime now) {
-    if (lastChatDateTime.year == now.year &&
-        lastChatDateTime.month == now.month &&
-        lastChatDateTime.day == now.day) {
-      return lastChatDateTime.hour > 12
-          ? "${lastChatDateTime.hour - 12}:${lastChatDateTime.minute.toString().padLeft(2, '0')} PM"
-          : "${lastChatDateTime.hour}:${lastChatDateTime.minute.toString().padLeft(2, '0')} AM";
-    } else if (lastChatDateTime.year == now.year &&
-        lastChatDateTime.month == now.month &&
-        lastChatDateTime.day == now.day - 1) {
-      return "Yesterday";
-    } else {
-      return "${lastChatDateTime.day}/${lastChatDateTime.month}/${lastChatDateTime.year}";
-    }
-  }
 }

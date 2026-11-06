@@ -1,3 +1,4 @@
+import 'package:nikah_blessing/Email_Authentication/terms_acceptance_dialog.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -40,6 +41,12 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
   TextEditingController NameTextEditingController = TextEditingController();
 
   final FirestoreService _firestoreService = FirestoreService();
+
+  Future<bool> _confirmPolicyAcceptance() async {
+    final accepted = await showTermsAcceptanceDialog(context);
+    widget.otpService.hasAcceptedTerms = accepted;
+    return accepted;
+  }
 
   bool _hasExistingProfile(Map<String, dynamic>? data) {
     if (data == null) {
@@ -114,7 +121,15 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
       print("User signed in: ${user.phoneNumber}");
       print("User signed in: ${user.photoURL}");
 
+      if (!widget.otpService.hasAcceptedTerms) {
+        final accepted = await _confirmPolicyAcceptance();
+        if (!accepted) {
+          if (mounted && Navigator.canPop(context)) Navigator.pop(context);
+          return;
+        }
+      }
       await _firestoreService.saveUserToFirestore(
+        acceptedTerms: widget.otpService.hasAcceptedTerms,
         name: googleResult.displayName,
         email: googleResult.email,
         uid: user.uid,
@@ -159,7 +174,15 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
       final appleResult = await appleSignInService.signInWithApple();
       final user = appleResult.user;
 
+      if (!widget.otpService.hasAcceptedTerms) {
+        final accepted = await _confirmPolicyAcceptance();
+        if (!accepted) {
+          if (mounted && Navigator.canPop(context)) Navigator.pop(context);
+          return;
+        }
+      }
       await _firestoreService.saveUserToFirestore(
+        acceptedTerms: widget.otpService.hasAcceptedTerms,
         name: appleResult.displayName,
         email: appleResult.email,
         uid: user.uid,

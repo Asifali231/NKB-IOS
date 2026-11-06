@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:nikah_blessing/FirebaseOperation/payment_visibility_service.dart';
+import 'package:nikah_blessing/Packages_Module/ios_iap_paywall.dart';
 import 'package:nikah_blessing/Payement_Module/PaymentPagesController.dart';
 
 class PackagesPage extends StatelessWidget {
@@ -127,6 +130,10 @@ class PackagesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (Platform.isIOS) {
+      return IosIapPaywall(entryMessage: entryMessage);
+    }
+
     if (Theme.of(context).platform == TargetPlatform.iOS) {
       return Scaffold(
         backgroundColor: Colors.white,

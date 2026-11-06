@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:nikah_blessing/theme/app_brand_colors.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -174,7 +175,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF5E35B1),
+              color: AppBrandColors.brandPurple,
             ),
           ),
           childrenPadding: const EdgeInsets.all(16),
@@ -192,7 +193,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         maxLines: maxLines,
         decoration: InputDecoration(
           labelText: label,
-          prefixIcon: Icon(icon, color: const Color(0xFF5E35B1)),
+          prefixIcon: Icon(icon, color: AppBrandColors.editProfileAccent),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(18)),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(18),
@@ -200,7 +201,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
           focusedBorder: const OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(18)),
-            borderSide: BorderSide(color: Color(0xFF5E35B1), width: 1.4),
+            borderSide: BorderSide(
+              color: AppBrandColors.editProfileAccent,
+              width: 1.4,
+            ),
           ),
           filled: true,
           fillColor: Colors.white,
@@ -218,7 +222,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         title: const Text('Edit Profile', style: TextStyle(fontWeight: FontWeight.bold)),
         elevation: 0,
         backgroundColor: const Color(0xFFF8F5FF),
-        foregroundColor: const Color(0xFF5E35B1),
+        foregroundColor: AppBrandColors.brandPurple,
       ),
       body: Stack(
         children: [
@@ -238,16 +242,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color(0xFF5E35B1).withOpacity(0.95),
-                          const Color(0xFF8E5CE6).withOpacity(0.92),
-                        ],
-                      ),
+                      gradient: AppBrandColors.brandGradient,
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF5E35B1).withOpacity(0.18),
+                          color:                           AppBrandColors.editProfileAccent
+                              .withOpacity(0.18),
                           blurRadius: 18,
                           offset: const Offset(0, 8),
                         ),
@@ -330,7 +330,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 2,
-                      backgroundColor: const Color(0xFF5E35B1),
+                      backgroundColor: AppBrandColors.editProfileAccent,
                       foregroundColor: Colors.white,
                       textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),

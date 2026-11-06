@@ -4,7 +4,6 @@ import 'dart:convert';
 class UserDataEncryptor {
 
 
-  final _key = encrypt.Key.fromUtf8('my32lengthsupersecretnooneknows1'); // 32 chars
   final _iv = encrypt.IV.fromLength(16);
 
   final encrypt.Encrypter _encrypter;

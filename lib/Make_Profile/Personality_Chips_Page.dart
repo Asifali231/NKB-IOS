@@ -1,9 +1,6 @@
-import 'package:chip_list/chip_list.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:nikah_blessing/Make_Profile/saveProposalToFireStore.dart';
 import 'package:nikah_blessing/DataClass/UserData.dart';
-import 'package:nikah_blessing/User_Home_Pages/user_main.dart';
 
 class Personality_Chips_Page extends StatefulWidget {
   final VoidCallback navigateToNextPage, navigateToPrevPage;

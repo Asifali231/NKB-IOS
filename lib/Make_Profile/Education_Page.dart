@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:nikah_blessing/DataClass/UserData.dart';
@@ -609,4 +607,3 @@ class _Education_PageState extends State<Education_Page> {
   }
 
 }
-

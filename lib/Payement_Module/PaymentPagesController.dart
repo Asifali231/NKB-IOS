@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:nikah_blessing/Packages_Module/ios_iap_paywall.dart';
 import 'package:nikah_blessing/Payement_Module/JazzCashPaymentPage.dart';
 import 'CreditCardPaymentPage.dart';
 import 'manualPayement_Page.dart';
@@ -79,21 +82,7 @@ class _PaymentPagesControllerState extends State<PaymentPagesController> {
 
   @override
   Widget build(BuildContext context) {
-    if (Theme.of(context).platform == TargetPlatform.iOS) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Purchases unavailable')),
-        body: const Center(
-          child: Padding(
-            padding: EdgeInsets.all(24),
-            child: Text(
-              'Purchases are not available in this iOS version. '
-              'You can continue using the free features.',
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      );
-    }
+    if (Platform.isIOS) return const IosIapPaywall();
 
     final pages = _buildPages();
     return Scaffold(
