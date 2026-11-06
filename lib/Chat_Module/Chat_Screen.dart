@@ -35,7 +35,7 @@ class _Chat_ScreenState extends State<Chat_Screen> with WidgetsBindingObserver {
   final TextEditingController chatMessageController = TextEditingController();
 
   bool _send = false;
-  Stream<QuerySnapshot>? _chatMessageStream;
+  Stream<QuerySnapshot<Map<String, dynamic>>>? _chatMessageStream;
 
   @override
   void initState() {
@@ -329,7 +329,7 @@ class _Chat_ScreenState extends State<Chat_Screen> with WidgetsBindingObserver {
   }
 
   Widget _buildMessageList() {
-    return StreamBuilder<QuerySnapshot>(
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: _chatMessageStream,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -353,7 +353,7 @@ class _Chat_ScreenState extends State<Chat_Screen> with WidgetsBindingObserver {
 
         for (var doc in snapshot.data!.docs) {
           var message = doc;
-          final messageDateTime = chatDateTimeFrom(message.data()?['time']);
+          final messageDateTime = chatDateTimeFrom(message.data()['time']);
           String messageDate = getDateDividerText(messageDateTime);
 
           if (currentDate != messageDate) {
