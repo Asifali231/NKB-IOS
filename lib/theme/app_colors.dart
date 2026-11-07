@@ -1,5 +1,17 @@
 import 'package:flutter/material.dart';
 
+const Color kBrandPrimary = Color(0xFF5724C5);
+const LinearGradient kBrandGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [
+    Color(0xF25724C5),
+    Color(0xEB9B51E0),
+    Color(0xE6E66BA6),
+  ],
+);
+const Color kEditProfileAccent = Color(0xFF5E35B1);
+
 class AppColors {
   static const Color primaryPurple = Color(0xFF7A5CFF);
   static const Color primaryPink = Color(0xFFE9408A);

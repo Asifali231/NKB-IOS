@@ -6,7 +6,6 @@ import 'package:nikah_blessing/FirebaseOperation/payment_visibility_service.dart
 import 'package:nikah_blessing/Payement_Module/in_app_purchase_service.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:nikah_blessing/theme/app_brand_colors.dart';
 import 'package:nikah_blessing/theme/app_colors.dart';
 
 class IosIapPaywall extends StatefulWidget {
@@ -26,37 +25,12 @@ class _IosIapPaywallState extends State<IosIapPaywall> {
       Uri.parse('https://nikahblessing.com/nkb-app/privacypolicy');
   final InAppPurchaseService _purchaseService = InAppPurchaseService.instance;
 
-  List<Package> _packages = [];
+  List<IosPackageOffer> _packages = [];
   bool _isLoading = true;
   bool _isBusy = false;
   bool _isPremium = false;
   String? _errorMessage;
   String? _statusMessage;
-
-  Package? get _monthlyPackage => _packageForProduct(
-        InAppPurchaseService.monthlyProductId,
-        PackageType.monthly,
-      );
-
-  Package? get _threeMonthPackage => _packageForProduct(
-        InAppPurchaseService.threeMonthProductId,
-        PackageType.threeMonth,
-      );
-
-  Package? get _yearlyPackage => _packageForProduct(
-        InAppPurchaseService.yearlyProductId,
-        PackageType.annual,
-      );
-
-  Package? _packageForProduct(String productId, PackageType packageType) {
-    for (final package in _packages) {
-      if (package.storeProduct.identifier == productId) return package;
-    }
-    for (final package in _packages) {
-      if (package.packageType == packageType) return package;
-    }
-    return null;
-  }
 
   @override
   void initState() {
@@ -135,7 +109,7 @@ class _IosIapPaywallState extends State<IosIapPaywall> {
     }
   }
 
-  Future<void> _purchase(Package package) async {
+  Future<void> _purchase(IosPackageOffer package) async {
     setState(() {
       _isBusy = true;
       _errorMessage = null;
@@ -154,12 +128,22 @@ class _IosIapPaywallState extends State<IosIapPaywall> {
     } catch (error) {
       if (!mounted) return;
       final hasEntitlement = _purchaseService.iosEntitlementActive.value;
+      final purchaseError = error is PlatformException
+          ? PurchasesErrorHelper.getErrorCode(error)
+          : null;
+      final wasCancelled =
+          purchaseError == PurchasesErrorCode.purchaseCancelledError;
+      final isPending = purchaseError == PurchasesErrorCode.paymentPendingError;
       setState(() {
         _isPremium = hasEntitlement;
         _statusMessage = hasEntitlement
             ? 'Purchase confirmed. Account synchronization will retry when your connection is available.'
-            : null;
-        if (!hasEntitlement) _errorMessage = _readableError(error);
+            : isPending
+                ? 'Your purchase is pending approval by the App Store.'
+                : null;
+        if (!hasEntitlement && !wasCancelled && !isPending) {
+          _errorMessage = _readableError(error);
+        }
       });
     } finally {
       if (mounted) setState(() => _isBusy = false);
@@ -221,14 +205,58 @@ class _IosIapPaywallState extends State<IosIapPaywall> {
   }
 
   String? _savingsText() {
-    final monthly = _monthlyPackage?.storeProduct.price;
-    final yearly = _yearlyPackage?.storeProduct.price;
+    final monthly = _packageForOrder(1)?.storePackage.storeProduct.price;
+    final yearly = _packageForOrder(2)?.storePackage.storeProduct.price;
     if (monthly == null || yearly == null || monthly <= 0) return null;
 
     final savings = ((monthly * 12 - yearly) / (monthly * 12) * 100).round();
     if (savings <= 0) return null;
     return 'Save $savings% compared with 12 monthly payments';
   }
+
+  IosPackageOffer? _packageForOrder(int order) {
+    for (final package in _packages) {
+      if (package.order == order) return package;
+    }
+    return null;
+  }
+
+  String _renewalPeriod(StoreProduct product) {
+    final match = RegExp(r'^P(\d+)([DWMY])$')
+        .firstMatch(product.subscriptionPeriod ?? '');
+    if (match == null) return '';
+    final count = int.parse(match.group(1)!);
+    final unit = _periodUnitLabel(
+      switch (match.group(2)) {
+        'D' => PeriodUnit.day,
+        'W' => PeriodUnit.week,
+        'M' => PeriodUnit.month,
+        'Y' => PeriodUnit.year,
+        _ => PeriodUnit.unknown,
+      },
+      count,
+    );
+    if (unit == null) return '';
+    if (count == 1) return 'per ${unit.substring(2)}';
+    return 'every $unit';
+  }
+
+  String _billingInterval(StoreProduct product) {
+    final period = _periodLabel(product.subscriptionPeriod);
+    if (period == null) return 'One-time purchase';
+    final match = RegExp(r'^1 (day|week|month|year)$').firstMatch(period);
+    if (match == null) return 'Billed every $period';
+    return 'Billed ${switch (match.group(1)) {
+      'day' => 'daily',
+      'week' => 'weekly',
+      'month' => 'monthly',
+      'year' => 'yearly',
+      _ => period,
+    }}';
+  }
+
+  bool _isLifetime(IosPackageOffer package) =>
+      package.duration.toUpperCase() == 'LIFETIME';
 
   String? _introductoryOfferText(StoreProduct product) {
     final introductoryPrice = product.introductoryPrice;
@@ -368,28 +396,12 @@ class _IosIapPaywallState extends State<IosIapPaywall> {
               child: Center(child: CircularProgressIndicator()),
             )
           else ...[
-            if (_monthlyPackage != null)
+            for (final package in _packages)
               _planCard(
-                package: _monthlyPackage!,
-                title: '1 Month',
-                renewalPeriod: 'per month',
-                interval: 'Billed monthly',
-              ),
-            if (_threeMonthPackage != null)
-              _planCard(
-                package: _threeMonthPackage!,
-                title: '3 Months',
-                renewalPeriod: 'every 3 months',
-                interval: 'Billed every 3 months',
-              ),
-            if (_yearlyPackage != null)
-              _planCard(
-                package: _yearlyPackage!,
-                title: '1 Year',
-                renewalPeriod: 'per year',
-                interval: 'Billed yearly',
-                bestValue: true,
-                savings: _savingsText(),
+                package: package,
+                bestValue: package.order == 2,
+                savings: package.order == 2 ? _savingsText() : null,
+                isLifetime: _isLifetime(package),
               ),
             if (_packages.isEmpty && _errorMessage == null) ...[
               _messageCard(
@@ -454,14 +466,14 @@ class _IosIapPaywallState extends State<IosIapPaywall> {
               ),
             ),
           const Text(
-            'Subscriptions renew automatically until cancelled. Cancel anytime in App Store settings.',
+            'Subscriptions renew automatically until cancelled. One-time purchases do not renew. Cancel subscriptions anytime in App Store settings.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.black54, height: 1.4),
           ),
           const SizedBox(height: 8),
           OutlinedButton(
             style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: AppBrandColors.brandPurple),
+              side: const BorderSide(color: kBrandPrimary),
             ),
             onPressed: _isBusy ? null : _restorePurchases,
             child: const Text('Restore Purchases'),
@@ -489,22 +501,30 @@ class _IosIapPaywallState extends State<IosIapPaywall> {
   }
 
   Widget _planCard({
-    required Package package,
-    required String title,
-    required String renewalPeriod,
-    required String interval,
+    required IosPackageOffer package,
     bool bestValue = false,
     String? savings,
+    bool isLifetime = false,
   }) {
-    final product = package.storeProduct;
+    final product = package.storePackage.storeProduct;
+    final renewalPeriod = _renewalPeriod(product);
+    final interval = _billingInterval(product);
     final introductoryOfferText = _introductoryOfferText(product);
+    final packageDescription = package.description.isNotEmpty
+        ? package.description
+        : product.description;
+    final durationText = isLifetime
+        ? 'Lifetime access'
+        : package.duration == 'UNKNOWN'
+            ? 'Duration unavailable'
+            : '${package.duration} days access';
     return Card(
       color: Colors.white,
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
         side: BorderSide(
-          color: AppBrandColors.brandPurple,
+          color: kBrandPrimary,
           width: bestValue ? 1.5 : 1,
         ),
       ),
@@ -517,7 +537,7 @@ class _IosIapPaywallState extends State<IosIapPaywall> {
               children: [
                 Expanded(
                   child: Text(
-                    title,
+                    package.displayName,
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -528,9 +548,21 @@ class _IosIapPaywallState extends State<IosIapPaywall> {
                   const Chip(
                     label: Text('Best value'),
                     visualDensity: VisualDensity.compact,
-                    side: BorderSide(color: AppBrandColors.brandPurple),
+                    side: BorderSide(color: kBrandPrimary),
                   ),
               ],
+            ),
+            if (packageDescription.trim().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                packageDescription,
+                style: const TextStyle(color: Colors.black54),
+              ),
+            ],
+            const SizedBox(height: 4),
+            Text(
+              '${package.dailyProfiles} daily profiles · $durationText',
+              style: const TextStyle(color: Colors.black54),
             ),
             const SizedBox(height: 8),
             Text(
@@ -553,7 +585,9 @@ class _IosIapPaywallState extends State<IosIapPaywall> {
             ],
             const SizedBox(height: 4),
             Text(
-              '${product.priceString} $renewalPeriod. Renews automatically. Cancel anytime in App Store settings.',
+              isLifetime
+                  ? '${product.priceString} one-time purchase.'
+                  : '${product.priceString} $renewalPeriod. Renews automatically. Cancel anytime in App Store settings.',
               style: const TextStyle(color: Colors.black54, height: 1.4),
             ),
             const SizedBox(height: 12),
@@ -563,7 +597,7 @@ class _IosIapPaywallState extends State<IosIapPaywall> {
                 borderRadius: BorderRadius.circular(999),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: AppBrandColors.brandGradient,
+                    gradient: kBrandGradient,
                   ),
                   child: FilledButton(
                     style: FilledButton.styleFrom(

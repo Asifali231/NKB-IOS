@@ -1,11 +1,17 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:quickalert/quickalert.dart';
+import 'package:nikah_blessing/theme/app_alert.dart';
+import 'package:quickalert/models/quickalert_type.dart';
 
 import '../../Email_Authentication/EmailAuth_Main.dart';
 
 class UserDeletion {
+  bool get _isIOS => !kIsWeb && Platform.isIOS;
+
   Future<void> deleteUser(
       BuildContext context,
       String userId,
@@ -15,7 +21,7 @@ class UserDeletion {
 
   {
 
-    QuickAlert.show(
+    showAppAlert(
       context: context,
       type: QuickAlertType.loading,
       title: "Deleting Account",
@@ -32,7 +38,13 @@ class UserDeletion {
         throw Exception("Current user does not match the user to be deleted.");
       }
 
-      await _reauthenticateUser(context, auth, currentUser);
+      final reauthentication =
+          await _reauthenticateUser(context, auth, currentUser);
+      if (_isIOS &&
+          currentUser.providerData
+              .any((provider) => provider.providerId == 'apple.com')) {
+        await _revokeAppleToken(auth, reauthentication);
+      }
 
       // Delete Firestore documents first
       await FirebaseFirestore.instance.collection('users').doc(userId).delete();
@@ -43,34 +55,42 @@ class UserDeletion {
           .doc(userId)
           .delete();
 
-      // Try deleting Firebase Auth user
+      // Retry the delete after refreshing credentials if the session expired.
       try {
         await currentUser.delete();
       } on FirebaseAuthException catch (e) {
         if (e.code == 'requires-recent-login') {
-          if (context.mounted) Navigator.pop(context);
-
-          // Sign out and navigate to login
-          await auth.signOut();
-          throw Exception(
-            "Your session expired. Sign in again and retry account deletion.",
-          );
+          final refreshedReauthentication =
+              await _reauthenticateUser(context, auth, currentUser);
+          if (_isIOS &&
+              currentUser.providerData
+                  .any((provider) => provider.providerId == 'apple.com')) {
+            await _revokeAppleToken(auth, refreshedReauthentication);
+          }
+          await currentUser.delete();
         } else {
-          throw Exception("Auth error: ${e.message}");
+          rethrow;
         }
       }
 
       if (!context.mounted) return;
       Navigator.pop(context);
       _showSuccess(context);
+    } on FirebaseAuthException catch (e) {
+      if (!context.mounted) return;
+      if (Navigator.canPop(context)) Navigator.pop(context);
+      if (e.code == 'web-context-cancelled' || e.code == 'canceled') {
+        return;
+      }
+      _showError(context, "Failed to delete account: ${e.message ?? e.code}");
     } catch (e) {
       if (!context.mounted) return;
-      Navigator.pop(context);
+      if (Navigator.canPop(context)) Navigator.pop(context);
       _showError(context, "Failed to delete account: $e");
     }
   }
 
-  Future<void> _reauthenticateUser(
+  Future<UserCredential?> _reauthenticateUser(
     BuildContext context,
     FirebaseAuth auth,
     User user,
@@ -116,23 +136,20 @@ class UserDeletion {
           throw Exception("Your account email is unavailable.");
         }
 
-        await user.reauthenticateWithCredential(
+        return await user.reauthenticateWithCredential(
           EmailAuthProvider.credential(email: email, password: password),
         );
-        return;
       } finally {
         passwordController.dispose();
       }
     }
 
     if (providerIds.contains("apple.com")) {
-      await user.reauthenticateWithProvider(AppleAuthProvider());
-      return;
+      return user.reauthenticateWithProvider(AppleAuthProvider());
     }
 
     if (providerIds.contains("google.com")) {
-      await user.reauthenticateWithProvider(GoogleAuthProvider());
-      return;
+      return user.reauthenticateWithProvider(GoogleAuthProvider());
     }
 
     throw Exception(
@@ -140,8 +157,20 @@ class UserDeletion {
     );
   }
 
+  Future<void> _revokeAppleToken(
+    FirebaseAuth auth,
+    UserCredential? reauthentication,
+  ) async {
+    final authorizationCode =
+        reauthentication?.additionalUserInfo?.authorizationCode;
+    if (authorizationCode == null || authorizationCode.isEmpty) {
+      throw StateError('Apple did not provide an authorization code to revoke.');
+    }
+    await auth.revokeTokenWithAuthorizationCode(authorizationCode);
+  }
+
   void _showSuccess(BuildContext context) {
-    QuickAlert.show(
+    showAppAlert(
       context: context,
       type: QuickAlertType.success,
       title: "Account Deleted",
@@ -156,7 +185,7 @@ class UserDeletion {
   }
 
   void _showError(BuildContext context, String message) {
-    QuickAlert.show(
+    showAppAlert(
       context: context,
       type: QuickAlertType.error,
       title: "Error",

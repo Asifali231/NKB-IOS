@@ -8,33 +8,30 @@ import '../DataClass/UserData.dart';
 class Any_Disability_Page extends StatefulWidget {
   final VoidCallback navigateToNextPage, navigateToPrevPage;
 
-  Any_Disability_Page({required this.navigateToNextPage, required this.navigateToPrevPage});
+  Any_Disability_Page(
+      {required this.navigateToNextPage, required this.navigateToPrevPage});
 
   @override
   State<Any_Disability_Page> createState() => _Any_Disability_PageState();
 }
 
 class _Any_Disability_PageState extends State<Any_Disability_Page> {
-
-
   TextEditingController DisabilityTextEditorController =
-  new TextEditingController();
+      new TextEditingController();
   String _sharewith = '2';
-  
-  TextEditingController DisabilityDisTextEDitorController =new TextEditingController();
 
-  String SelectedDisablity ="";
-  String SelectedDisablity_Error ="";
-  String SelectedDisablityDis ="";
-  String SelectedDisablityDis_Error ="";
+  TextEditingController DisabilityDisTextEDitorController =
+      new TextEditingController();
 
+  String SelectedDisablity = "";
+  String SelectedDisablity_Error = "";
+  String SelectedDisablityDis = "";
+  String SelectedDisablityDis_Error = "";
 
-  void validateAndNavigate()
-  {
+  void validateAndNavigate() {
     setState(() {
-
-      SelectedDisablity_Error ="";
-      SelectedDisablityDis_Error ="";
+      SelectedDisablity_Error = "";
+      SelectedDisablityDis_Error = "";
 
       if (DisabilityTextEditorController.text.toString() == "") {
         SelectedDisablity_Error = 'Please select an option if none select none';
@@ -44,22 +41,18 @@ class _Any_Disability_PageState extends State<Any_Disability_Page> {
         SelectedDisablityDis_Error = 'Please add some description';
       }
 
-      if(DisabilityTextEditorController.text.toString() != "" && DisabilityDisTextEDitorController.text.toString() != "")
-        {
-
-          UserData.Disability = DisabilityTextEditorController.text.toString();
-          UserData.DisabilityDis = DisabilityDisTextEDitorController.text.toString();
-          UserData.DisabilityShareWith = _sharewith.toString();
-          widget.navigateToNextPage();
-
-        }
-
-
+      if (DisabilityTextEditorController.text.toString() != "" &&
+          DisabilityDisTextEDitorController.text.toString() != "") {
+        UserData.Disability = DisabilityTextEditorController.text.toString();
+        UserData.DisabilityDis =
+            DisabilityDisTextEDitorController.text.toString();
+        UserData.DisabilityShareWith = _sharewith.toString();
+        widget.navigateToNextPage();
+      }
     });
   }
 
   String UserName = UserData.Name;
-
 
   final Map<int, String> disabilities = {
     0: 'None',
@@ -139,20 +132,19 @@ class _Any_Disability_PageState extends State<Any_Disability_Page> {
     74: 'Myotonic Dystrophy',
   };
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Container(
         margin: EdgeInsets.only(top: 68),
-
-        height: MediaQuery.of(context).size.height,
         width: MediaQuery.of(context).size.width,
         child: Column(
           children: [
             Expanded(
               child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 child: Padding(
                   padding: EdgeInsets.only(right: 20, left: 20),
                   child: Column(
@@ -187,7 +179,8 @@ class _Any_Disability_PageState extends State<Any_Disability_Page> {
                               ),
                             ),
                             TextSpan(
-                              text: "it's good to be honest at start of relation",
+                              text:
+                                  "it's good to be honest at start of relation",
                               style: TextStyle(
                                 fontWeight: FontWeight.normal,
                                 fontSize: 14,
@@ -224,7 +217,7 @@ class _Any_Disability_PageState extends State<Any_Disability_Page> {
                         minLines: 3,
                         decoration: InputDecoration(
                           hintText:
-                          'I live with my mother and my siblings i.e one brother two sisters .......',
+                              'I live with my mother and my siblings i.e one brother two sisters .......',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10.0),
                           ),
@@ -238,8 +231,8 @@ class _Any_Disability_PageState extends State<Any_Disability_Page> {
                       SizedBox(height: 10),
                       Text(
                         "Share this info with",
-                        style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 18),
                       ),
                       Column(
                         children: [
@@ -336,5 +329,4 @@ class _Any_Disability_PageState extends State<Any_Disability_Page> {
       ),
     );
   }
-
 }

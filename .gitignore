@@ -2,3 +2,4 @@ build/
 .dart_tool/
 Pods/
 *.dSYM/
+assets/revenuecat.env

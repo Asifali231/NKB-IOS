@@ -1,14 +1,18 @@
-import 'package:nikah_blessing/Email_Authentication/terms_acceptance_dialog.dart';
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import 'package:flutter/services.dart';
 import 'package:nikah_blessing/DataClass/UserData.dart';
 import 'package:nikah_blessing/Email_Authentication/generate_otp_and_send_mail.dart';
 
-import 'package:quickalert/quickalert.dart';
+import 'package:nikah_blessing/theme/app_alert.dart';
+import 'package:quickalert/models/quickalert_type.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:slider_button/slider_button.dart';
 import 'package:email_validator/email_validator.dart';
 
@@ -17,6 +21,7 @@ import '../User_Home_Pages/user_main.dart';
 import 'apple_signin.dart';
 import 'createUserInFireStore.dart';
 import 'google_signin.dart';
+import 'ios_login_blob_decoration.dart';
 
 class EmailSignIn_Page extends StatefulWidget {
   final VoidCallback navigateToNextPage, navigateToPrevPage;
@@ -31,9 +36,16 @@ class EmailSignIn_Page extends StatefulWidget {
   State<EmailSignIn_Page> createState() => _EmailSignIn_PageState();
 }
 
-class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
+class _EmailSignIn_PageState extends State<EmailSignIn_Page>
+    with SingleTickerProviderStateMixin {
+  static const _maximumTextScale = 1.2;
+
   GoogleSignInService googleSignInService = GoogleSignInService();
   AppleSignInService appleSignInService = AppleSignInService();
+
+  late final AnimationController _loginAnimationController;
+  late final Animation<double> _loginOpacity;
+  late final Animation<Offset> _loginOffset;
 
   final _formKey = GlobalKey<FormState>();
 
@@ -41,12 +53,6 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
   TextEditingController NameTextEditingController = TextEditingController();
 
   final FirestoreService _firestoreService = FirestoreService();
-
-  Future<bool> _confirmPolicyAcceptance() async {
-    final accepted = await showTermsAcceptanceDialog(context);
-    widget.otpService.hasAcceptedTerms = accepted;
-    return accepted;
-  }
 
   bool _hasExistingProfile(Map<String, dynamic>? data) {
     if (data == null) {
@@ -63,6 +69,7 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
   }
 
   navigateToMainScreen(BuildContext context) async {
+    FocusManager.instance.primaryFocus?.unfocus();
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
@@ -104,7 +111,7 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
   }
 
   void signInThroughGoogle() async {
-    QuickAlert.show(
+    showAppAlert(
       title: "Signing You In",
       text: "Please wait while we sign you in",
       context: context,
@@ -121,13 +128,6 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
       print("User signed in: ${user.phoneNumber}");
       print("User signed in: ${user.photoURL}");
 
-      if (!widget.otpService.hasAcceptedTerms) {
-        final accepted = await _confirmPolicyAcceptance();
-        if (!accepted) {
-          if (mounted && Navigator.canPop(context)) Navigator.pop(context);
-          return;
-        }
-      }
       await _firestoreService.saveUserToFirestore(
         acceptedTerms: widget.otpService.hasAcceptedTerms,
         name: googleResult.displayName,
@@ -137,7 +137,7 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
 
       if (mounted) Navigator.pop(context);
 
-      QuickAlert.show(
+      showAppAlert(
         title: "Successfully SignedIn",
         context: context,
         type: QuickAlertType.success,
@@ -151,7 +151,7 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
         Navigator.pop(context);
       }
 
-      QuickAlert.show(
+      showAppAlert(
         title: "An Error Occurred",
         text: "Try again later network error ",
         context: context,
@@ -162,7 +162,7 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
   }
 
   Future<void> signInThroughApple() async {
-    QuickAlert.show(
+    showAppAlert(
       title: "Signing You In",
       text: "Please wait while we sign you in",
       context: context,
@@ -174,13 +174,6 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
       final appleResult = await appleSignInService.signInWithApple();
       final user = appleResult.user;
 
-      if (!widget.otpService.hasAcceptedTerms) {
-        final accepted = await _confirmPolicyAcceptance();
-        if (!accepted) {
-          if (mounted && Navigator.canPop(context)) Navigator.pop(context);
-          return;
-        }
-      }
       await _firestoreService.saveUserToFirestore(
         acceptedTerms: widget.otpService.hasAcceptedTerms,
         name: appleResult.displayName,
@@ -192,7 +185,7 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
         Navigator.pop(context);
       }
 
-      QuickAlert.show(
+      showAppAlert(
         title: "Successfully SignedIn",
         context: context,
         type: QuickAlertType.success,
@@ -205,7 +198,7 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
         Navigator.pop(context);
       }
 
-      QuickAlert.show(
+      showAppAlert(
         title: "An Error Occurred",
         text: e.toString().replaceFirst('Exception: ', ''),
         context: context,
@@ -218,11 +211,369 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
   bool get _shouldShowAppleSignIn =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
+  bool get _isIOS => !kIsWeb && Platform.isIOS;
+
+  String? _signingInProvider;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!_isIOS) return;
+
+    _loginAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _loginOpacity = CurvedAnimation(
+      parent: _loginAnimationController,
+      curve: Curves.easeOut,
+    );
+    _loginOffset = Tween<Offset>(
+      begin: const Offset(0, 0.035),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _loginAnimationController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+    _loginAnimationController.forward();
+  }
+
+  @override
+  void dispose() {
+    if (_isIOS) _loginAnimationController.dispose();
+    EmailtextEditingController.dispose();
+    NameTextEditingController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _signInOnIOS({required bool useApple}) async {
+    if (_signingInProvider != null) return;
+    await HapticFeedback.lightImpact();
+    if (!mounted) return;
+    setState(() => _signingInProvider = useApple ? 'apple' : 'google');
+
+    try {
+      late final User user;
+      String? name;
+      String? email;
+
+      if (useApple) {
+        final result = await appleSignInService.signInWithApple();
+        user = result.user;
+        name = result.displayName;
+        email = result.email;
+      } else {
+        final result = await googleSignInService.signInWithGoogleForIOS();
+        user = result.user;
+        name = result.displayName;
+        email = result.email;
+      }
+
+      final created = await _firestoreService.createUserIfAbsent(
+        acceptedTerms: widget.otpService.hasAcceptedTerms,
+        name: name,
+        email: email,
+        uid: user.uid,
+      );
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              created ? Profile_Questionnaire_main() : UserMain(),
+        ),
+      );
+    } on FirebaseAuthException catch (error) {
+      debugPrint('iOS social sign-in failed: ${error.code}');
+      if (error.code == 'canceled' ||
+          error.code == 'web-context-cancelled' ||
+          error.code == 'popup-closed-by-user') {
+        return;
+      } else if (error.code == 'account-exists-with-different-credential') {
+        _showIOSSignInMessage(
+          'An account already exists with this email. Please continue with the provider you used originally.',
+        );
+      } else if (error.code == 'network-request-failed') {
+        _showIOSSignInMessage(
+          'Please check your internet connection and try again.',
+        );
+      } else {
+        _showIOSSignInMessage(
+          'We could not complete sign-in. Please try again.',
+        );
+      }
+    } on SignInWithAppleAuthorizationException catch (error) {
+      debugPrint('Apple authorization failed: ${error.code}');
+      if (error.code != AuthorizationErrorCode.canceled) {
+        _showIOSSignInMessage(
+          'We could not complete sign-in. Please try again.',
+        );
+      }
+    } catch (error) {
+      debugPrint('iOS social sign-in failed: $error');
+      final errorMessage = error.toString().toLowerCase();
+      if (!errorMessage.contains('cancelled by user') &&
+          !errorMessage.contains('canceled by user')) {
+        _showIOSSignInMessage(
+          'We could not complete sign-in. Please try again.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _signingInProvider = null);
+    }
+  }
+
+  void _showIOSSignInMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
+  Widget _buildIOSLoginScreen() {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: MediaQuery.textScalerOf(context)
+                .clamp(maxScaleFactor: _maximumTextScale),
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) => Stack(
+              fit: StackFit.expand,
+              children: [
+                const IOSLoginBlobDecoration(),
+                SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints:
+                        BoxConstraints(minHeight: constraints.maxHeight),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 420),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: FadeTransition(
+                            opacity: _loginOpacity,
+                            child: SlideTransition(
+                              position: _loginOffset,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Image.asset(
+                                    'assets/images/icon.png',
+                                    width: 96,
+                                    height: 96,
+                                    fit: BoxFit.contain,
+                                  ),
+                                  const SizedBox(height: 22),
+                                  const Text(
+                                    'Sign in to Nikah Blessing',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF1A1A1A),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Continue with your Apple or Google account. It only takes a moment.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: Color(0xFF6B6B6B),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 32),
+                                  Semantics(
+                                    button: true,
+                                    label: 'Sign in with Apple',
+                                    enabled: _signingInProvider == null,
+                                    child: SizedBox(
+                                      width: double.infinity,
+                                      height: 54,
+                                      child: ElevatedButton(
+                                        onPressed: _signingInProvider == null
+                                            ? () => _signInOnIOS(
+                                                  useApple: true,
+                                                )
+                                            : null,
+                                        style: ElevatedButton.styleFrom(
+                                          elevation: 1,
+                                          shadowColor:
+                                              const Color(0x1F000000),
+                                          backgroundColor: Colors.black,
+                                          foregroundColor: Colors.white,
+                                          disabledBackgroundColor: Colors.black,
+                                          disabledForegroundColor:
+                                              Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                          ),
+                                        ),
+                                        child:
+                                            _signingInProvider == 'apple'
+                                                ? const SizedBox(
+                                                    width: 20,
+                                                    height: 20,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color: Colors.white,
+                                                    ),
+                                                  )
+                                                : const Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.apple,
+                                                        size: 22,
+                                                      ),
+                                                      SizedBox(width: 10),
+                                                      Text(
+                                                        'Continue with Apple',
+                                                        style: TextStyle(
+                                                          fontSize: 15,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Semantics(
+                                    button: true,
+                                    label: 'Sign in with Google',
+                                    enabled: _signingInProvider == null,
+                                    child: SizedBox(
+                                      width: double.infinity,
+                                      height: 54,
+                                      child: OutlinedButton(
+                                        onPressed: _signingInProvider == null
+                                            ? () => _signInOnIOS(
+                                                  useApple: false,
+                                                )
+                                            : null,
+                                        style: OutlinedButton.styleFrom(
+                                          elevation: 1,
+                                          shadowColor:
+                                              const Color(0x14000000),
+                                          backgroundColor: Colors.white,
+                                          foregroundColor:
+                                              const Color(0xFF292929),
+                                          side: const BorderSide(
+                                            color: Color(0xFFD8D8D8),
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                          ),
+                                        ),
+                                        child:
+                                            _signingInProvider == 'google'
+                                                ? const SizedBox(
+                                                    width: 20,
+                                                    height: 20,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color: Color(0xFF5F6368),
+                                                    ),
+                                                  )
+                                                : Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
+                                                    children: [
+                                                      Image.asset(
+                                                        'assets/google.png',
+                                                        width: 22,
+                                                        height: 22,
+                                                      ),
+                                                      const SizedBox(
+                                                          width: 10),
+                                                      const Text(
+                                                        'Continue with Google',
+                                                        style: TextStyle(
+                                                          fontSize: 15,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  const Text(
+                                    'New here? Your account is created automatically. Already registered? You will go straight to your account.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      height: 1.45,
+                                      color: Color(0xFF777777),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 28),
+                                  const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.lock_outline,
+                                        size: 14,
+                                        color: Color(0xFF777777),
+                                      ),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'Secure sign in',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF777777),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isIOS) return _buildIOSLoginScreen();
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Container(
           height: MediaQuery.of(context).size.height,
           child: Column(
@@ -236,12 +587,7 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
                 style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 10),
-              Text(
-                'We need to register you before getting started',
-                style: TextStyle(fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 0),
+              const SizedBox(height: 0),
               Padding(
                 padding: EdgeInsets.all(20),
                 child: Form(
@@ -267,8 +613,8 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
                           hintText: "Muhammad Ali Afzal",
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return "Please enter your name";
+                          if (value == null || value.trim().isEmpty) {
+                            return "Please enter your full name before requesting a code";
                           }
                           return null;
                         },
@@ -292,9 +638,9 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
                           hintText: "AliAfzal_456@gmail.com",
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.trim().isEmpty) {
                             return "Please enter a valid email";
-                          } else if (!EmailValidator.validate(value)) {
+                          } else if (!EmailValidator.validate(value.trim())) {
                             return "Please enter a valid email";
                           }
                           return null;
@@ -307,7 +653,7 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
                         child: ElevatedButton(
                           onPressed: () async {
                             if (_formKey.currentState!.validate()) {
-                              QuickAlert.show(
+                              showAppAlert(
                                 title: "Sending Verification ",
                                 text:
                                     "Please wait while we send you verification mail",
@@ -317,13 +663,14 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
                               ); // That's it to display an alert, use other properties to customize.
 
                               try {
-                                final result = await widget.otpService.sendMail(
-                                  EmailtextEditingController.text.trim(),
-                                );
+                                final email =
+                                    EmailtextEditingController.text.trim();
+                                final result =
+                                    await widget.otpService.sendMail(email);
                                 if (!mounted) return;
                                 Navigator.pop(context);
                                 if (result != 'true') {
-                                  QuickAlert.show(
+                                  showAppAlert(
                                     title: 'Unable to send verification code',
                                     text: result,
                                     context: context,
@@ -332,13 +679,14 @@ class _EmailSignIn_PageState extends State<EmailSignIn_Page> {
                                   return;
                                 }
 
-                                UserData.Email =
-                                    EmailtextEditingController.text.trim();
+                                UserData.Name =
+                                    NameTextEditingController.text.trim();
+                                UserData.Email = email;
                                 widget.navigateToNextPage();
                               } catch (error) {
                                 if (!mounted) return;
                                 Navigator.pop(context);
-                                QuickAlert.show(
+                                showAppAlert(
                                   title: 'Unable to send verification code',
                                   text: error.toString(),
                                   context: context,

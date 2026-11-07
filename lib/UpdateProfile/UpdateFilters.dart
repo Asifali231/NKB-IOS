@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:nikah_blessing/Admin_Module/AdminUpdateUserPackage.dart';
 import 'package:nikah_blessing/DataClass/UserData.dart';
-import 'package:quickalert/quickalert.dart';
+import 'package:nikah_blessing/theme/app_alert.dart';
+import 'package:quickalert/models/quickalert_type.dart';
 import 'package:select_searchable_list/select_searchable_list.dart';
 import 'package:syncfusion_flutter_sliders/sliders.dart';
 
@@ -210,7 +211,7 @@ class _UpdateFiltersState extends State<UpdateFilters> {
     UserData.partnerCast = '';
     UserData.partnerMartialStatus = List<String>.from(_selectedMartialStatuses);
 
-    QuickAlert.show(
+    showAppAlert(
       context: context,
       type: QuickAlertType.loading,
       title: "Updating ..",

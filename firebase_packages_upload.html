@@ -83,13 +83,13 @@
 <body>
   <h1>Upload packages to Firestore</h1>
   <p class="muted">
-    Writes the <strong>packages</strong> collection. Edit <code>firebaseConfig</code> in the script below (Firebase Console → Project settings → Your apps), then open this file and click Upload.
+    Writes the iOS subscription configuration to the <strong>packages</strong> collection. Prices are intentionally omitted; the iOS app reads localized prices from RevenueCat.
   </p>
 
   <section>
     <h2>Upload</h2>
     <p class="muted" style="margin-bottom:12px;">
-      Document IDs: <code>priority_service</code>, <code>consultation</code>, <code>premium_support</code>, <code>free</code>.
+      Firestore documents: <code>Noor Package</code>, <code>Yearly Package</code>, <code>Qismat Pro</code>.
     </p>
     <div class="actions">
       <button type="button" id="btnUpload">Upload packages to Firestore</button>
@@ -119,50 +119,45 @@
 
       const PACKAGES = [
         {
-          name: "priority_service",
-          price: 10000,
-          description: "Priority access to premium matches and services",
-          isActive: true,
+          documentId: "Noor Package",
+          name: "Noor Package",
+          ChatCredit: 0,
+          DailyProfiles: 50,
+          days: 30,
           order: 1,
-          priorityMatches: 10,
-          expressReview: true,
-          reviewHours: 24,
-          exclusiveEvents: true,
-          verifiedOnly: true
+          isActive: true,
+          isIosSubscription: true,
+          revenuecat_package_id: "$rc_monthly",
+          ios_product_id: "Nikahblessing_1month",
+          description: "Monthly Noor Package"
         },
         {
-          name: "consultation",
-          price: 5000,
-          description: "Professional matchmaking consultation service",
-          isActive: true,
+          documentId: "Yearly Package",
+          name: "Rehmat Package",
+          ChatCredit: 0,
+          DailyProfiles: 200,
+          days: 365,
           order: 2,
-          consultationHours: 1,
-          includesFollowUp: true,
-          followUpDays: 30
+          isActive: true,
+          isIosSubscription: true,
+          revenuecat_package_id: "$rc_annual",
+          ios_product_id: "Nikahblessing_1yearly",
+          description: "Yearly Rehmat Package"
         },
         {
-          name: "premium_support",
-          price: 3000,
-          description: "24/7 dedicated support and guidance",
-          isActive: true,
+          documentId: "Qismat Pro",
+          name: "Qismat Pro",
+          ChatCredit: 0,
+          DailyProfiles: 2010,
+          days: "LIFETIME",
           order: 3,
-          supportHours: 30,
-          priorityAccess: true,
-          expertHotline: true,
-          emergencySupport: true
-        },
-        {
-          name: "free",
-          price: 0,
-          description: "Basic matchmaking service",
           isActive: true,
-          order: 4
+          isIosSubscription: true,
+          revenuecat_package_id: "$rc_lifetime",
+          ios_product_id: "Nikahblessing_lifetime",
+          description: "Lifetime Qismat Pro access"
         }
       ];
-
-      function docIdFromName(name) {
-        return String(name).toLowerCase().trim().replace(/\s+/g, "_");
-      }
 
       function log(msg, cls) {
         const el = document.getElementById("log");
@@ -192,10 +187,10 @@
           const ts = firebase.firestore.FieldValue.serverTimestamp();
           const batch = firestore.batch();
           for (const pkg of PACKAGES) {
-            const id = docIdFromName(pkg.name);
-            const ref = firestore.collection("packages").doc(id);
-            batch.set(ref, Object.assign({}, pkg, { createdAt: ts, updatedAt: ts }));
-            log("Queued: packages/" + id, "ok");
+            const { documentId, ...packageData } = pkg;
+            const ref = firestore.collection("packages").doc(documentId);
+            batch.set(ref, Object.assign({}, packageData, { createdAt: ts, updatedAt: ts }));
+            log("Queued: packages/" + documentId, "ok");
           }
           await batch.commit();
           log("Done. Committed " + PACKAGES.length + " documents.", "ok");

@@ -3,7 +3,6 @@
 // Is Getting ?
 // Is saving  ?
 
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
@@ -12,7 +11,8 @@ import 'package:nikah_blessing/DataClass/UserData.dart';
 class Name_Phone_Page extends StatefulWidget {
   final VoidCallback navigateToNextPage, navigateToPrevPage;
 
-  Name_Phone_Page({required this.navigateToNextPage, required this.navigateToPrevPage});
+  Name_Phone_Page(
+      {required this.navigateToNextPage, required this.navigateToPrevPage});
 
   @override
   State<Name_Phone_Page> createState() => _Name_Phone_PageState();
@@ -21,29 +21,25 @@ class Name_Phone_Page extends StatefulWidget {
 class _Name_Phone_PageState extends State<Name_Phone_Page> {
   final _formKey = GlobalKey<FormState>();
 
-  static TextEditingController nameTextEditingController = TextEditingController();
-  static TextEditingController phoneTextEditingController = TextEditingController();
+  static TextEditingController nameTextEditingController =
+      TextEditingController();
+  static TextEditingController phoneTextEditingController =
+      TextEditingController();
 
   String? phoneNumber;
 
   void validateAndNavigate() {
     if (_formKey.currentState!.validate()) {
-
-
       setState(() {
         UserData.Name = nameTextEditingController.text.toString();
         UserData.PhoneNumber = phoneTextEditingController.text.toString();
-
       });
 
       print("The User Display Name IS " + UserData.Name);
       print("The User Phone Number IS " + UserData.PhoneNumber);
 
       widget.navigateToNextPage();
-
-    } else {
-
-    }
+    } else {}
   }
 
   @override
@@ -58,13 +54,14 @@ class _Name_Phone_PageState extends State<Name_Phone_Page> {
       body: Container(
         color: Colors.transparent,
         margin: EdgeInsets.only(top: 68),
-        height: MediaQuery.of(context).size.height,
         width: MediaQuery.of(context).size.width,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Expanded(
               child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -116,7 +113,8 @@ class _Name_Phone_PageState extends State<Name_Phone_Page> {
                             SizedBox(height: 15),
                             Text(
                               'Display Name',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                             SizedBox(height: 5),
                             TextFormField(
@@ -137,7 +135,8 @@ class _Name_Phone_PageState extends State<Name_Phone_Page> {
                             SizedBox(height: 18),
                             Text(
                               'Phone Number',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                             SizedBox(height: 10),
                             IntlPhoneField(
@@ -172,7 +171,9 @@ class _Name_Phone_PageState extends State<Name_Phone_Page> {
                                     color: Colors.blueGrey,
                                     size: 16.0,
                                   ),
-                                  SizedBox(width: 8.0), // Space between icon and text
+                                  SizedBox(
+                                      width:
+                                          8.0), // Space between icon and text
                                   Expanded(
                                     child: Text(
                                       'Your phone number will remain confidential and will only be used to contact you if we need to address any inquiries or concerns.',
@@ -209,7 +210,10 @@ class _Name_Phone_PageState extends State<Name_Phone_Page> {
                   child: Center(
                     child: Text(
                       'Continue',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -220,5 +224,4 @@ class _Name_Phone_PageState extends State<Name_Phone_Page> {
       ),
     );
   }
-
 }

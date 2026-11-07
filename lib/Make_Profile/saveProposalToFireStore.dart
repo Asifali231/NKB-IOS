@@ -3,8 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart'; // Ensure this is imported for 'BuildContext'
 import 'package:nikah_blessing/SharedPrefrences/SaveUserDataLocally.dart';
+import 'package:nikah_blessing/theme/app_alert.dart';
 import 'dart:io';
-import 'package:quickalert/quickalert.dart'; // Ensure QuickAlert is imported
+import 'package:quickalert/models/quickalert_type.dart';
 
 import '../DataClass/UserData.dart';
 import '../User_Home_Pages/user_main.dart';
@@ -13,7 +14,10 @@ class saveProposalToFireStore {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  Future<void> uploadUserData(BuildContext context) async {
+  Future<void> uploadUserData(
+    BuildContext context, {
+    required bool acceptedTerms,
+  }) async {
     final FirebaseAuth auth = FirebaseAuth.instance;
     final String userId = UserData.userID.isNotEmpty
         ? UserData.userID
@@ -26,7 +30,7 @@ class saveProposalToFireStore {
     UserData.userID = userId;
 
     // Show loading alert
-    QuickAlert.show(
+    showAppAlert(
       context: context,
       type: QuickAlertType.loading,
       title: "Creating Profile",
@@ -41,7 +45,7 @@ class saveProposalToFireStore {
           await _resolvePersonalLiveImageUrl(userId, context);
       final profileImageUrls = await _resolveProfileImageUrls(userId, context);
 
-      QuickAlert.show(
+      showAppAlert(
         context: context,
         type: QuickAlertType.loading,
         title: "Saving Data",
@@ -176,11 +180,18 @@ class saveProposalToFireStore {
           .doc(userId)
           .set(userDataMap);
       await _firestore.collection('users').doc(userId).update(userDataMap);
+      if (acceptedTerms) {
+        await _firestore.collection('users').doc(userId).update({
+          'termsAccepted': true,
+          'termsAcceptedAt': FieldValue.serverTimestamp(),
+          'termsVersion': '1.0',
+        });
+      }
 
       SaveUserDataLocally saveUserDataLocally = SaveUserDataLocally();
       await saveUserDataLocally.saveData(userDataMap);
 
-      QuickAlert.show(
+      showAppAlert(
         context: context,
         type: QuickAlertType.success,
         title: "Profile Created",
@@ -197,7 +208,7 @@ class saveProposalToFireStore {
       //print('Error uploading user data: $e');
 
       // Dismiss loading alert and show error alert
-      QuickAlert.show(
+      showAppAlert(
         context: context,
         type: QuickAlertType.error,
         title: "Error",
@@ -225,7 +236,7 @@ class saveProposalToFireStore {
       //print('Error uploading files to storage: $e');
 
       // Dismiss loading alert and show error alert
-      QuickAlert.show(
+      showAppAlert(
         context: context,
         type: QuickAlertType.error,
         title: "Error",
@@ -308,7 +319,7 @@ class saveProposalToFireStore {
       //print('Error uploading file to storage: $e');
 
       // Dismiss loading alert and show error alert
-      QuickAlert.show(
+      showAppAlert(
         context: context,
         type: QuickAlertType.error,
         title: "Error",

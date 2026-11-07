@@ -6,14 +6,14 @@ import 'package:select_searchable_list/select_searchable_list.dart';
 class Profession_Page extends StatefulWidget {
   final VoidCallback navigateToNextPage, navigateToPrevPage;
 
-  Profession_Page({required this.navigateToNextPage, required this.navigateToPrevPage});
+  Profession_Page(
+      {required this.navigateToNextPage, required this.navigateToPrevPage});
 
   @override
   State<Profession_Page> createState() => _Profession_PageState();
 }
 
 class _Profession_PageState extends State<Profession_Page> {
-
   String SelectedProfession = "";
   String SelectedJobCountry = "";
 
@@ -21,12 +21,13 @@ class _Profession_PageState extends State<Profession_Page> {
   String JobCountryError = "";
   String descriptionError = "";
 
+  Map<int, String> ProfessionMap = {};
+  Map<int, String> IncomeMap = {};
 
-  Map<int ,String > ProfessionMap= {};
-  Map<int ,String > IncomeMap= {};
-
-  TextEditingController ProfessionTextEditingController = new TextEditingController();
-  TextEditingController JobCountryTextEditingController = new TextEditingController();
+  TextEditingController ProfessionTextEditingController =
+      new TextEditingController();
+  TextEditingController JobCountryTextEditingController =
+      new TextEditingController();
   TextEditingController DisTextEditorController = new TextEditingController();
 
   Map<int, String> CountryMap = {
@@ -444,10 +445,8 @@ class _Profession_PageState extends State<Profession_Page> {
   String selectedCurrency = 'PKR';
   double enteredAmount = 0.0;
 
-  void validateAndNavigate()
-  {
+  void validateAndNavigate() {
     setState(() {
-      
       ProfessionError = "";
       JobCountryError = "";
       descriptionError = "";
@@ -465,12 +464,9 @@ class _Profession_PageState extends State<Profession_Page> {
       // Validate Description
       if (DisTextEditorController.text.toString() == "") {
         descriptionError = 'Description cannot be empty';
-
       }
 
-
       if (DisTextEditorController.text != "") {
-
         UserData.Profession = SelectedProfession;
         UserData.JobCountry = SelectedJobCountry;
         UserData.JobDesc = DisTextEditorController.text.toString();
@@ -485,13 +481,12 @@ class _Profession_PageState extends State<Profession_Page> {
   Widget build(BuildContext context) {
     return Container(
       margin: EdgeInsets.only(top: 68),
-
-      height: MediaQuery.of(context).size.height,
       width: MediaQuery.of(context).size.width,
       child: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
@@ -543,7 +538,8 @@ class _Profession_PageState extends State<Profession_Page> {
                         setState(() {
                           ProfessionError = "";
                           int? selectedIndex = selectedValue?.first;
-                          SelectedProfession = professions[selectedIndex] ?? 'Unknown';
+                          SelectedProfession =
+                              professions[selectedIndex] ?? 'Unknown';
                         });
                       },
                     ),
@@ -564,7 +560,8 @@ class _Profession_PageState extends State<Profession_Page> {
                         setState(() {
                           JobCountryError = "";
                           int? selectedIndex = selectedValue?.first;
-                          SelectedJobCountry = CountryMap[selectedIndex] ?? 'Unknown';
+                          SelectedJobCountry =
+                              CountryMap[selectedIndex] ?? 'Unknown';
                         });
                       },
                     ),
@@ -591,7 +588,8 @@ class _Profession_PageState extends State<Profession_Page> {
                       minLines: 3,
                       controller: DisTextEditorController,
                       decoration: InputDecoration(
-                        hintText: 'I own my own business and also invest in stocks ...',
+                        hintText:
+                            'I own my own business and also invest in stocks ...',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10.0),
                           borderSide: BorderSide(color: Colors.grey),
@@ -640,5 +638,4 @@ class _Profession_PageState extends State<Profession_Page> {
       ),
     );
   }
-
 }

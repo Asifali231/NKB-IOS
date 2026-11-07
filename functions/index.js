@@ -1,4 +1,3 @@
-const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const cors = require("cors")({origin: true});
 const crypto = require("crypto");
@@ -6,8 +5,16 @@ const axios = require("axios");
 const nodemailer = require("nodemailer");
 const querystring = require("querystring");
 const {sendMail} = require("./emailService");
+const {onCall, onRequest, HttpsError} = require("firebase-functions/v2/https");
+const {defineSecret} = require("firebase-functions/params");
 
 admin.initializeApp();
+
+const SMTP_USER = defineSecret("SMTP_USER");
+const SMTP_PASSWORD = defineSecret("SMTP_PASSWORD");
+const REVENUECAT_API_KEY = defineSecret("REVENUECAT_API_KEY");
+const REVENUECAT_WEBHOOK_AUTHORIZATION =
+  defineSecret("REVENUECAT_WEBHOOK_AUTHORIZATION");
 
 const WEB_PROJECT_ID = "nikah-blessing";
 const webApp =
@@ -35,6 +42,84 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+async function sendPushToToken(token, title, body, imageUrl = "", type = "general") {
+  const normalizedToken = String(token || "").trim();
+  if (!normalizedToken) return null;
+  const image = /^https?:\/\//i.test(String(imageUrl || "").trim()) ?
+    String(imageUrl).trim() : "";
+
+  const message = {
+    token: normalizedToken,
+    notification: {
+      title: String(title || "Nikah Blessing"),
+      body: String(body || ""),
+      ...(image ? {imageUrl: image} : {}),
+    },
+    data: {type: String(type)},
+    android: {
+      priority: "high",
+      notification: {
+        sound: "default",
+        priority: "high",
+        channelId: "high_importance_channel",
+        ...(image ? {imageUrl: image} : {}),
+      },
+    },
+    apns: {
+      payload: {
+        aps: {
+          alert: {
+            title: String(title || "Nikah Blessing"),
+            body: String(body || ""),
+          },
+          sound: "default",
+        },
+      },
+      ...(image ? {fcmOptions: {imageUrl: image}} : {}),
+    },
+  };
+
+  try {
+    return await admin.messaging().send(message);
+  } catch (error) {
+    console.error("Push notification delivery failed:", {
+      code: error?.code,
+      message: error?.message,
+      type,
+    });
+    return null;
+  }
+}
+
+async function sendPushToUser(
+    userId,
+    title,
+    body,
+    type = "general",
+    firestoreDb = admin.firestore(),
+    imageUrl = "",
+) {
+  if (!userId) return null;
+  try {
+    const userSnapshot = await firestoreDb.collection("users").doc(userId).get();
+    const userData = userSnapshot.data() || {};
+    return await sendPushToToken(
+        userData.fcmToken || userData.userDeviceToken,
+        title,
+        body,
+        imageUrl,
+        type,
+    );
+  } catch (error) {
+    console.error("Unable to load recipient for push notification:", {
+      userId,
+      code: error?.code,
+      message: error?.message,
+      type,
+    });
+    return null;
+  }
+}
 
 function parseJazzCashPostBody(req) {
   const body = req.body;
@@ -219,6 +304,13 @@ const jazzCashWebReturnHandler = async (req, res) => {
 
       const userSnap = await userRef.get();
       const userData = userSnap.data() || {};
+      await sendPushToUser(
+          uid,
+          "Payment Successful",
+          `Your payment for the ${packageData.name || pkgIdentifier} package was successful.`,
+          "payment_success",
+          webDb,
+      );
 
       if (userData.email) {
         await sendMail("payment_verified", userData.email, {
@@ -285,6 +377,13 @@ const jazzCashWebReturnHandler = async (req, res) => {
 
     const userSnap = uid ? await webDb.collection("users").doc(uid).get() : null;
     const userData = userSnap && userSnap.exists ? userSnap.data() : {};
+    await sendPushToUser(
+        uid,
+        "Payment Failed",
+        `Your payment could not be completed. ${paymentResponse.pp_ResponseMessage || "Please try again."}`,
+        "payment_failed",
+        webDb,
+    );
 
     if (userData.email) {
       await sendMail("payment_rejected", userData.email, {
@@ -463,16 +562,12 @@ async function updateUserPackage(uid, pkgName) {
           iosSubscription: admin.firestore.FieldValue.delete(),
         });
 
-    if (userData.fcmToken) {
-      await admin.messaging().send({
-        token: userData.fcmToken,
-        notification: {
-          title: "Package Approved",
-          body: "Your Package Successfully Subscribed",
-          imageUrl: "imgurl",
-        },
-      });
-    }
+    await sendPushToUser(
+        uid,
+        "Package Approved",
+        `Your ${pkgData.name || pkgName} package was successfully activated.`,
+        "payment_success",
+    );
 
     await sendTransactionEmail({
       email: userData.email,
@@ -491,7 +586,7 @@ async function updateUserPackage(uid, pkgName) {
 }
 
 
-exports.initiateJazzCashPayment = functions.https.onRequest((req, res) => {
+exports.initiateJazzCashPayment = onRequest((req, res) => {
   return cors(req, res, async () => {
     try {
       const {mobileNumber, cnic, amount, description, uid, pkgName} = req.body;
@@ -557,8 +652,8 @@ exports.initiateJazzCashPayment = functions.https.onRequest((req, res) => {
     }
   });
 });
-exports.jazzCashWebReturnUrl = functions.https.onRequest(jazzCashWebReturnHandler);
-exports.jazzCashReturnUrl = functions.https.onRequest(async (req, res) => {
+exports.jazzCashWebReturnUrl = onRequest(jazzCashWebReturnHandler);
+exports.jazzCashReturnUrl = onRequest(async (req, res) => {
   try {
     const paymentResponse = req.body;
     console.log("JazzCash Payment Response:", paymentResponse);
@@ -639,6 +734,12 @@ exports.jazzCashReturnUrl = functions.https.onRequest(async (req, res) => {
 
       const userSnap = await admin.firestore().collection("users").doc(uid).get();
       const userData = userSnap.data();
+      await sendPushToUser(
+          uid,
+          "Payment Failed",
+          "Your payment could not be completed. Please try again.",
+          "payment_failed",
+      );
 
       await sendTransactionEmail({
         email: userData.email,
@@ -706,84 +807,35 @@ exports.jazzCashReturnUrl = functions.https.onRequest(async (req, res) => {
     `);
   }
 });
-exports.sendNotification = functions.https.onCall(async (data, context) => {
+exports.sendNotification = onCall(async (request) => {
+  const data = request.data;
   try {
     const payload = data?.data && typeof data.data === "object" ? data.data : data || {};
-
-    // Log the incoming data for verification
-    console.log("Received data:", data);
-    console.log("Received data:", payload.title);
-    console.log("Received data:", payload.token);
-    console.log("Received data:", payload.imageUrl);
-    console.log("Received data:", payload.body);
-
-    // Check if the FCM token is provided
-    if (!payload.token) {
-      console.error("Missing FCM token");
-      throw new functions.https.HttpsError("invalid-argument", "Missing FCM token");
+    const uid = String(payload.uid || "").trim();
+    if (!uid) {
+      throw new HttpsError(
+          "invalid-argument",
+          "A notification recipient is required.",
+      );
     }
 
-    const notification = {
-      title: payload.title || "Default Title",
-      body: payload.body || "Default Body",
-    };
-
-    if (payload.imageUrl) {
-      notification.imageUrl = payload.imageUrl;
-    }
-
-    // Prepare the notification message
-    const message = {
-      token: payload.token, // Required: FCM token of the device
-      notification,
-      data: {
-        additionalInfo: payload.additionalInfo || "Some default data", // Optional extra data
-      },
-      android: {
-        priority: "high",
-        notification: {
-          sound: "default",
-          priority: "high",
-          channelId: "high_importance_channel",
-          ...(payload.imageUrl ? {imageUrl: payload.imageUrl} : {}),
-        },
-      },
-      apns: {
-        payload: {
-          aps: {
-            category: "VIEW_DETAILS_CATEGORY",
-            alert: {
-              title: payload.title || "Default Title",
-              body: payload.body || "Default Body",
-            },
-          },
-        },
-        ...(payload.imageUrl ?
-          {
-            fcmOptions: {
-              imageUrl: payload.imageUrl,
-            },
-          } :
-          {}),
-      },
-    };
-
-    // Log the message before sending it
-    console.log("Message prepared:", message);
-    // Send the notification using Firebase Admin SDK
-    const response = await admin.messaging().send(message);
-    // Log the success response
-    console.log("Notification sent successfully:", response);
-
-    return {success: true, response: response};
+    const messageId = await sendPushToUser(
+        uid,
+        payload.title,
+        payload.body,
+        payload.type || "general",
+        admin.firestore(),
+        payload.imageUrl,
+    );
+    return {success: Boolean(messageId), response: messageId};
   } catch (error) {
-    // Log the error details for better debugging
-    console.error("Error sending message:", error);
-
-    throw new functions.https.HttpsError("internal", "Unable to send message.", error);
+    console.error("Error sending message:", error?.code, error?.message);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", "Unable to send message.", error);
   }
 });
-exports.sendBulkNotification = functions.https.onCall(async (data, context) => {
+exports.sendBulkNotification = onCall(async (request) => {
+  const data = request.data;
   try {
     const payload = data?.data && typeof data.data === "object" ? data.data : data || {};
     const title = String(payload.title || "").trim();
@@ -792,7 +844,7 @@ exports.sendBulkNotification = functions.https.onCall(async (data, context) => {
     const filters = payload.filters || {};
 
     if (!title || !body) {
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
           "invalid-argument",
           "Notification title and body are required.",
       );
@@ -869,6 +921,10 @@ exports.sendBulkNotification = functions.https.onCall(async (data, context) => {
         apns: {
           payload: {
             aps: {
+              alert: {
+                title,
+                body,
+              },
               sound: "default",
             },
           },
@@ -898,7 +954,7 @@ exports.sendBulkNotification = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error("Error sending bulk notification:", error);
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
         "internal",
         error?.message || "Unable to send bulk notification.",
         {
@@ -908,7 +964,7 @@ exports.sendBulkNotification = functions.https.onCall(async (data, context) => {
     );
   }
 });
-exports.handlePaymentStatus = functions.https.onRequest((req, res) => {
+exports.handlePaymentStatus = onRequest((req, res) => {
   return cors(req, res, async () => {
     try {
       console.log("Received req.body:", req.body);
@@ -936,7 +992,7 @@ exports.handlePaymentStatus = functions.https.onRequest((req, res) => {
   });
 });
 
-exports.handleFinalPaymentStatus = functions.https.onRequest((req, res) => {
+exports.handleFinalPaymentStatus = onRequest((req, res) => {
   return cors(req, res, async () => {
     try {
       console.log("Received req.body:", req.body);
@@ -953,22 +1009,26 @@ exports.handleFinalPaymentStatus = functions.https.onRequest((req, res) => {
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      // Send notification using FCM if needed
-      if (status === "Success") {
-        // Get user's FCM token from Firestore and send notification
-        const paymentDoc = await admin.firestore()
-            .collection("payments")
-            .doc(orderRefNumber)
-            .get();
-
-        if (paymentDoc.exists && paymentDoc.data().fcmToken) {
-          await admin.messaging().send({
-            token: paymentDoc.data().fcmToken,
-            notification: {
-              title: "Payment Successful",
-              body: `Your payment of PKR ${paymentDoc.data().amount} has been processed successfully.`,
-            },
-          });
+      const paymentSnapshot = await admin.firestore()
+          .collection("payments")
+          .doc(orderRefNumber)
+          .get();
+      const payment = paymentSnapshot.data() || {};
+      if (String(status).toLowerCase() === "success") {
+        const title = "Payment Successful";
+        const body = `Your payment of PKR ${payment.amount || 0} has been processed successfully.`;
+        if (payment.userId) {
+          await sendPushToUser(payment.userId, title, body, "payment_success");
+        } else {
+          await sendPushToToken(payment.fcmToken, title, body, "", "payment_success");
+        }
+      } else {
+        const title = "Payment Failed";
+        const body = "Your payment could not be completed. Please try again.";
+        if (payment.userId) {
+          await sendPushToUser(payment.userId, title, body, "payment_failed");
+        } else {
+          await sendPushToToken(payment.fcmToken, title, body, "", "payment_failed");
         }
       }
 
@@ -979,10 +1039,11 @@ exports.handleFinalPaymentStatus = functions.https.onRequest((req, res) => {
     }
   });
 });
-exports.initializePayment = functions.https.onCall(async (data, context) => {
+exports.initializePayment = onCall(async (request) => {
+  const data = request.data;
   try {
-    if (!context.auth) {
-      throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be logged in");
     }
 
     const {orderId, amount} = data;
@@ -992,7 +1053,7 @@ exports.initializePayment = functions.https.onCall(async (data, context) => {
         .collection("payments")
         .doc(orderId)
         .set({
-          userId: context.auth.uid,
+          userId: request.auth.uid,
           amount: amount,
           status: "pending",
           provider: "easypaisa",
@@ -1002,10 +1063,10 @@ exports.initializePayment = functions.https.onCall(async (data, context) => {
     return {success: true};
   } catch (error) {
     console.error("Error initializing payment:", error);
-    throw new functions.https.HttpsError("internal", "Error initializing payment");
+    throw new HttpsError("internal", "Error initializing payment");
   }
 });
-exports.jazzCashIPN = functions.https.onRequest(async (req, res) => {
+exports.jazzCashIPN = onRequest(async (req, res) => {
   try {
     const paymentResponse = req.body;
     console.log("JazzCash Payment Response:", paymentResponse);
@@ -1131,7 +1192,7 @@ exports.jazzCashIPN = functions.https.onRequest(async (req, res) => {
 //
 
 
-exports.initiateJazzCashPayment = functions.https.onRequest((req, res) => {
+exports.initiateJazzCashPayment = onRequest((req, res) => {
   return cors(req, res, async () => {
     try {
       const {mobileNumber, cnic, amount, description, uid, pkgName} = req.body;
@@ -1201,8 +1262,8 @@ exports.initiateJazzCashPayment = functions.https.onRequest((req, res) => {
     }
   });
 });
-exports.jazzCashWebReturnUrl = functions.https.onRequest(jazzCashWebReturnHandler);
-exports.jazzCashReturnUrl = functions.https.onRequest(async (req, res) => {
+exports.jazzCashWebReturnUrl = onRequest(jazzCashWebReturnHandler);
+exports.jazzCashReturnUrl = onRequest(async (req, res) => {
   try {
     const paymentResponse = parseJazzCashPostBody(req);
     console.log("JazzCash Payment Response:", paymentResponse);
@@ -1346,16 +1407,12 @@ exports.jazzCashReturnUrl = functions.https.onRequest(async (req, res) => {
   }
 });
 
-const IOS_SUBSCRIPTION_PRODUCTS = new Set([
-  "nikahblessing_monthly",
-  "nikahblessing_3month",
-  "nikahblessing_yearly",
-]);
-const IOS_PREMIUM_PACKAGE = "Premium";
-const IOS_PREMIUM_ENTITLEMENT = "premium";
+exports.initializeJazzCashPayment = exports.initiateJazzCashPayment;
+
+const IOS_PREMIUM_ENTITLEMENT = "nikah_blessing_pro";
 
 async function getRevenueCatSubscription(userId) {
-  const apiKey = process.env.REVENUECAT_API_KEY;
+  const apiKey = REVENUECAT_API_KEY.value();
   if (!apiKey) {
     throw new Error("REVENUECAT_API_KEY is not configured.");
   }
@@ -1372,9 +1429,28 @@ async function getRevenueCatSubscription(userId) {
   );
   const subscriber = response.data?.subscriber || {};
   const entitlement = subscriber.entitlements?.[IOS_PREMIUM_ENTITLEMENT];
-  if (!entitlement ||
-      !IOS_SUBSCRIPTION_PRODUCTS.has(entitlement.product_identifier)) {
+  if (!entitlement) {
     return {isPremium: false};
+  }
+
+  const packageSnapshot = await admin.firestore().collection("packages")
+      .get();
+  const matchingPackages = packageSnapshot.docs.filter((document) => {
+    const packageData = document.data();
+    return packageData.isActive !== false &&
+        String(packageData.ios_product_id || "").trim() ===
+        entitlement.product_identifier;
+  });
+  if (matchingPackages.length !== 1) {
+    return {isPremium: false};
+  }
+
+  const packageDocument = matchingPackages[0];
+  const packageName = String(packageDocument.data().name || "").trim();
+  if (!packageName) {
+    throw new Error(
+        `The iOS package "${packageDocument.id}" has no Firestore display name.`,
+    );
   }
 
   const expiresAt = entitlement.expires_date ?
@@ -1384,6 +1460,8 @@ async function getRevenueCatSubscription(userId) {
   return {
     isPremium,
     productId: entitlement.product_identifier,
+    packageDocumentId: packageDocument.id,
+    packageName,
   };
 }
 
@@ -1391,10 +1469,10 @@ async function synchronizeIosPremiumPackage(userId, subscription) {
   const db = admin.firestore();
   const userRef = db.collection("users").doc(userId);
 
-  await db.runTransaction(async (transaction) => {
+  const newlyActivated = await db.runTransaction(async (transaction) => {
     const userSnapshot = await transaction.get(userRef);
     if (!userSnapshot.exists) {
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
           "not-found",
           "The signed-in user profile was not found.",
       );
@@ -1417,6 +1495,9 @@ async function synchronizeIosPremiumPackage(userId, subscription) {
 
     const currentSubscription = userData.iosSubscription;
     if (subscription.isPremium) {
+      const wasAlreadyActive =
+          currentSubscription?.source === "revenuecat" &&
+          currentSubscription.productId === subscription.productId;
       const previousPackageName =
           currentSubscription?.source === "revenuecat" ?
             currentSubscription.previousPackageName :
@@ -1429,10 +1510,11 @@ async function synchronizeIosPremiumPackage(userId, subscription) {
             proposalData.PackageSubscribed || userData.PackageSubscribed || "Free";
 
       transaction.update(userRef, {
-        PackageSubscribed: IOS_PREMIUM_PACKAGE,
+        PackageSubscribed: subscription.packageName,
         iosSubscription: {
           source: "revenuecat",
           productId: subscription.productId,
+          packageDocumentId: subscription.packageDocumentId,
           previousPackageName,
           previousProposalPackageName,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1440,9 +1522,10 @@ async function synchronizeIosPremiumPackage(userId, subscription) {
       });
       if (proposalRef && proposalSnapshot.exists) {
         transaction.update(proposalRef, {
-          PackageSubscribed: IOS_PREMIUM_PACKAGE,
+          PackageSubscribed: subscription.packageName,
         });
       }
+      return !wasAlreadyActive;
     } else if (currentSubscription?.source === "revenuecat") {
       transaction.update(userRef, {
         PackageSubscribed: currentSubscription.previousPackageName || "Free",
@@ -1457,27 +1540,39 @@ async function synchronizeIosPremiumPackage(userId, subscription) {
         });
       }
     }
+    return false;
   });
+  return newlyActivated;
 }
 
 async function syncRevenueCatForUser(userId) {
   const subscription = await getRevenueCatSubscription(userId);
-  await synchronizeIosPremiumPackage(userId, subscription);
+  const newlyActivated =
+      await synchronizeIosPremiumPackage(userId, subscription);
+  if (subscription.isPremium && newlyActivated) {
+    await sendPushToUser(
+        userId,
+        "Payment Successful",
+        "Your App Store purchase has been verified and Premium is now active.",
+        "payment_success",
+    );
+  }
   return subscription.isPremium;
 }
 
-exports.syncRevenueCatSubscription = functions
-    .runWith({secrets: ["REVENUECAT_API_KEY"]})
-    .https.onCall(async (data, context) => {
+exports.syncRevenueCatSubscription = onCall(
+    {secrets: [REVENUECAT_API_KEY]},
+    async (request) => {
+      const context = request;
       if (!context.auth) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "unauthenticated",
             "Sign in before synchronizing a subscription.",
         );
       }
 
       if (context.auth.uid.startsWith("$RCAnonymousID")) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "invalid-argument",
             "A Firebase account is required for subscription synchronization.",
         );
@@ -1486,26 +1581,25 @@ exports.syncRevenueCatSubscription = functions
       try {
         return {isPremium: await syncRevenueCatForUser(context.auth.uid)};
       } catch (error) {
-        if (error instanceof functions.https.HttpsError) throw error;
+        if (error instanceof HttpsError) throw error;
         console.error("RevenueCat subscription synchronization failed:", error);
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "internal",
             "The subscription could not be synchronized. Please try again.",
         );
       }
-    });
+    },
+);
 
-exports.revenueCatWebhook = functions
-    .runWith({
-      secrets: ["REVENUECAT_API_KEY", "REVENUECAT_WEBHOOK_AUTHORIZATION"],
-    })
-    .https.onRequest(async (req, res) => {
+exports.revenueCatWebhook = onRequest(
+    {secrets: [REVENUECAT_API_KEY, REVENUECAT_WEBHOOK_AUTHORIZATION]},
+    async (req, res) => {
       if (req.method !== "POST") {
         res.status(405).send("Method not allowed.");
         return;
       }
       const expectedAuthorization =
-          process.env.REVENUECAT_WEBHOOK_AUTHORIZATION;
+          REVENUECAT_WEBHOOK_AUTHORIZATION.value();
       if (!expectedAuthorization ||
           req.get("authorization") !== expectedAuthorization) {
         res.status(401).send("Unauthorized.");
@@ -1527,11 +1621,12 @@ exports.revenueCatWebhook = functions
         console.error("RevenueCat webhook synchronization failed:", error);
         res.status(500).send("Subscription synchronization failed.");
       }
-    });
+    },
+);
 
 async function deleteUserAccount(data, context) {
   if (!context.auth) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
         "unauthenticated",
         "Sign in before deleting your account.",
     );
@@ -1541,7 +1636,7 @@ async function deleteUserAccount(data, context) {
   const now = Math.floor(Date.now() / 1000);
   if (!Number.isFinite(authTime) || now - authTime > 5 * 60 ||
       authTime > now + 60) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
         "failed-precondition",
         "Please sign in again before deleting your account.",
     );
@@ -1607,13 +1702,215 @@ async function deleteUserAccount(data, context) {
     return {deleted: true};
   } catch (error) {
     console.error("Account deletion failed:", error);
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
         "internal",
         "Account data could not be fully deleted. Please try again or contact support.",
     );
   }
 }
 
-exports.deleteUserAccount = functions
-    .runWith({timeoutSeconds: 540, memory: "1GB"})
-    .https.onCall(deleteUserAccount);
+exports.deleteUserAccount = onCall(
+    {timeoutSeconds: 540, memory: "1GiB"},
+    async (request) => deleteUserAccount(request.data, request),
+);
+
+function getEmailOtpDocumentId(email) {
+  return crypto.createHash("sha256").update(email).digest("hex");
+}
+
+function getEmailOtpHash(email, code) {
+  return crypto.createHash("sha256").update(`${email}:${code}`).digest("hex");
+}
+
+function getEmailOtpVerificationTokenHash(email, token) {
+  return crypto.createHash("sha256").update(`${email}:${token}`).digest("hex");
+}
+
+function normalizeOtpEmail(value) {
+  const email = String(value || "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new HttpsError("invalid-argument", "Enter a valid email address.");
+  }
+  return email;
+}
+
+exports.requestEmailOtp = onCall(
+    {secrets: [SMTP_USER, SMTP_PASSWORD]},
+    async (request) => {
+      const email = normalizeOtpEmail(request.data?.email);
+      const smtpUser = SMTP_USER.value().trim();
+      const smtpPassword = SMTP_PASSWORD.value().trim();
+      console.info("Email OTP SMTP secret presence:", {
+        SMTP_USER: Boolean(smtpUser),
+        SMTP_PASSWORD: Boolean(smtpPassword),
+      });
+      if (!smtpUser || !smtpPassword) {
+        throw new HttpsError(
+            "failed-precondition",
+            "SMTP config missing",
+        );
+      }
+
+      const db = admin.firestore();
+      const challengeRef = db.collection("email_otp_challenges")
+          .doc(getEmailOtpDocumentId(email));
+      const now = Date.now();
+      const code = crypto.randomInt(100000, 1000000).toString();
+      await db.runTransaction(async (transaction) => {
+        const challenge = await transaction.get(challengeRef);
+        const challengeData = challenge.data();
+        const sentAt = challengeData?.sentAt;
+        if (challengeData?.codeHash &&
+            sentAt &&
+            now - sentAt.toMillis() < 60000) {
+          throw new HttpsError(
+              "resource-exhausted",
+              "Please wait a minute before requesting another code.",
+          );
+        }
+        transaction.set(challengeRef, {
+          codeHash: getEmailOtpHash(email, code),
+          expiresAt: admin.firestore.Timestamp.fromMillis(now + 5 * 60000),
+          sentAt: admin.firestore.Timestamp.fromMillis(now),
+          attempts: 0,
+        });
+      });
+
+      try {
+        await sendMail("email_otp", email, {otp: code});
+        return {sent: true};
+      } catch (error) {
+        console.error("Email OTP delivery failed:", {
+          message: error?.message || String(error),
+          stack: error?.stack || null,
+          code: error?.code || null,
+          response: error?.response || null,
+          responseCode: error?.responseCode || null,
+        });
+        await challengeRef.update({codeHash: null});
+        if (error?.code === "EAUTH" ||
+            error?.responseCode === 535 ||
+            error?.responseCode === "535") {
+          console.error("Titan blocked Firebase IP:", {
+            host: "smtp.titan.email",
+            responseCode: error?.responseCode || null,
+          });
+          throw new HttpsError(
+              "unavailable",
+              "Titan SMTP blocked from Cloud - use Gmail / SendGrid fallback",
+          );
+        }
+        throw new HttpsError(
+            "internal",
+            error?.message || "Email delivery failed.",
+        );
+      }
+    },
+);
+
+exports.verifyEmailOtp = onCall(async (request) => {
+  const email = normalizeOtpEmail(request.data?.email);
+  const code = String(request.data?.code || "").trim();
+  if (!/^\d{6}$/.test(code)) {
+    throw new HttpsError("invalid-argument", "The code is incorrect or expired.");
+  }
+
+  const db = admin.firestore();
+  const challengeRef = db.collection("email_otp_challenges")
+      .doc(getEmailOtpDocumentId(email));
+  const now = Date.now();
+  const verificationToken = crypto.randomBytes(32).toString("hex");
+  let verified = false;
+  await db.runTransaction(async (transaction) => {
+    const challenge = await transaction.get(challengeRef);
+    const data = challenge.data();
+    if (!data || data.expiresAt.toMillis() <= now) {
+      transaction.delete(challengeRef);
+      return;
+    }
+
+    const attempts = Number(data.attempts || 0);
+    if (attempts >= 5) {
+      transaction.delete(challengeRef);
+      return;
+    }
+
+    if (data.codeHash === getEmailOtpHash(email, code)) {
+      transaction.update(challengeRef, {
+        codeHash: null,
+        verificationTokenHash:
+            getEmailOtpVerificationTokenHash(email, verificationToken),
+        verificationTokenExpiresAt:
+            admin.firestore.Timestamp.fromMillis(now + 5 * 60000),
+        attempts: 0,
+      });
+      verified = true;
+      return;
+    }
+
+    if (attempts >= 4) {
+      transaction.delete(challengeRef);
+    } else {
+      transaction.update(challengeRef, {attempts: attempts + 1});
+    }
+  });
+
+  if (!verified) {
+    throw new HttpsError("invalid-argument", "The code is incorrect or expired.");
+  }
+  return {verified: true, verificationToken};
+});
+
+exports.completeEmailOtpSignIn = onCall(async (request) => {
+  const email = normalizeOtpEmail(request.data?.email);
+  const verificationToken = String(request.data?.verificationToken || "").trim();
+  if (!/^[a-f0-9]{64}$/i.test(verificationToken)) {
+    throw new HttpsError("invalid-argument", "Verify your email code again.");
+  }
+
+  const challengeRef = admin.firestore()
+      .collection("email_otp_challenges")
+      .doc(getEmailOtpDocumentId(email));
+  const now = Date.now();
+  let tokenIsValid = false;
+  await admin.firestore().runTransaction(async (transaction) => {
+    const challenge = await transaction.get(challengeRef);
+    const data = challenge.data();
+    if (!data ||
+        !data.verificationTokenExpiresAt ||
+        data.verificationTokenExpiresAt.toMillis() <= now ||
+        data.verificationTokenHash !==
+            getEmailOtpVerificationTokenHash(email, verificationToken)) {
+      return;
+    }
+
+    transaction.delete(challengeRef);
+    tokenIsValid = true;
+  });
+
+  if (!tokenIsValid) {
+    throw new HttpsError("invalid-argument", "Verify your email code again.");
+  }
+
+  let user;
+  try {
+    user = await admin.auth().getUserByEmail(email);
+    if (!user.emailVerified) {
+      user = await admin.auth().updateUser(user.uid, {emailVerified: true});
+    }
+  } catch (error) {
+    if (error.code !== "auth/user-not-found") {
+      throw new HttpsError("internal", "Unable to sign in with this email.");
+    }
+    try {
+      user = await admin.auth().createUser({email, emailVerified: true});
+    } catch (createError) {
+      if (createError.code !== "auth/email-already-exists") {
+        throw new HttpsError("internal", "Unable to create your account.");
+      }
+      user = await admin.auth().getUserByEmail(email);
+    }
+  }
+
+  return {customToken: await admin.auth().createCustomToken(user.uid)};
+});

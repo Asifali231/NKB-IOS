@@ -19,7 +19,15 @@ class GoogleSignInService {
     scopes: ['email', 'profile'],
   );
 
-  Future<GoogleSignInResult> signInWithGoogle() async {
+  Future<GoogleSignInResult> signInWithGoogle() =>
+      _signInWithGoogle(preserveFirebaseAuthErrors: false);
+
+  Future<GoogleSignInResult> signInWithGoogleForIOS() =>
+      _signInWithGoogle(preserveFirebaseAuthErrors: true);
+
+  Future<GoogleSignInResult> _signInWithGoogle({
+    required bool preserveFirebaseAuthErrors,
+  }) async {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
@@ -59,6 +67,7 @@ class GoogleSignInService {
       return GoogleSignInResult(user: refreshed, email: email, displayName: name);
 
     } on FirebaseAuthException catch (e) {
+      if (preserveFirebaseAuthErrors) rethrow;
       throw Exception('Error: ${e.message}');
     } catch (e) {
       rethrow;

@@ -2,6 +2,20 @@
 
 Flutter matrimonial app for verified Muslim marriage profiles, messaging, profile moderation, and package-based access.
 
+## Local RevenueCat iOS testing
+
+For Xcode or `flutter run` local builds, copy `assets/revenuecat.env.example` to
+`assets/revenuecat.env` and set `REVENUECAT_IOS_API_KEY` to your RevenueCat
+public iOS key. This local file is git-ignored. Alternatively, pass the key at
+build time:
+
+```sh
+flutter run -d <your-iphone> --dart-define=REVENUECAT_IOS_API_KEY=<your-public-ios-key>
+```
+
+The `--dart-define` value takes precedence over the local env file. Codemagic
+continues to pass its `REVENUECAT_IOS_API_KEY` environment variable at build time.
+
 ## App Store Audit
 
 Audit date: May 17, 2026
@@ -133,7 +147,6 @@ If you want the fastest path to App Store approval, do this next:
 3. Finish Apple Sign-In setup on your Mac and test it on-device.
 
 Until the iOS payment model is fixed, this app is still high-risk for App Store rejection even though the Apple sign-in gap is now addressed in code.
-
 
 
 

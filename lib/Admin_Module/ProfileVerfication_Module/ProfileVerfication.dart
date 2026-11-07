@@ -4,11 +4,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:nikah_blessing/Notifications/NotificationPage.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
-import 'package:quickalert/quickalert.dart';
+import 'package:nikah_blessing/theme/app_alert.dart';
+import 'package:quickalert/models/quickalert_type.dart';
 
 class ProfileVerificationList extends StatefulWidget {
   @override
-  _ProfileVerificationListState createState() => _ProfileVerificationListState();
+  _ProfileVerificationListState createState() =>
+      _ProfileVerificationListState();
 }
 
 class _ProfileVerificationListState extends State<ProfileVerificationList> {
@@ -52,7 +54,8 @@ class _ProfileVerificationListState extends State<ProfileVerificationList> {
                 hintText: 'Search by name, email, or phone',
                 prefixIcon: Icon(Icons.search, color: Colors.indigo),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
             ),
           ),
@@ -61,7 +64,6 @@ class _ProfileVerificationListState extends State<ProfileVerificationList> {
               stream: FirebaseFirestore.instance
                   .collection('users')
                   .where('VerificationStatus', isEqualTo: 'UnVerified')
-
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
@@ -75,8 +77,8 @@ class _ProfileVerificationListState extends State<ProfileVerificationList> {
                 var profiles = snapshot.data!.docs.where((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   final searchString =
-                  '${data['name'] ?? ''} ${data['email'] ?? ''} ${data['PhoneNumber'] ?? ''}'
-                      .toLowerCase();
+                      '${data['name'] ?? ''} ${data['email'] ?? ''} ${data['PhoneNumber'] ?? ''}'
+                          .toLowerCase();
                   return searchString.contains(_searchQuery);
                 }).toList();
 
@@ -97,26 +99,19 @@ class _ProfileVerificationListState extends State<ProfileVerificationList> {
 
   Widget _buildProfileCard(Map<String, dynamic> data, DocumentReference ref) {
     return Card(
-
       color: Colors.white,
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-
       child: Column(
         children: [
           ListTile(
-
             contentPadding: EdgeInsets.all(8),
-
             leading: CircleAvatar(
-
               radius: 30,
-
               backgroundImage: data['ProfileImageUrls']?.isNotEmpty == true
                   ? NetworkImage(data['ProfileImageUrls'][0])
                   : null,
-
               child: data['ProfileImageUrls']?.isEmpty ?? true
                   ? Icon(Icons.person)
                   : null,
@@ -154,7 +149,6 @@ class _ProfileVerificationListState extends State<ProfileVerificationList> {
 
 // profile_detail_page.dart
 class ProfileDetailPage extends StatefulWidget {
-
   final Map<String, dynamic> profileData;
   final DocumentReference documentRef;
 
@@ -176,9 +170,16 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
     final uidRaw = widget.profileData['uid']?.toString() ?? '';
     final uid = uidRaw.isNotEmpty ? uidRaw : widget.documentRef.id;
 
-    final jobCountry = (widget.profileData['JobCountry'] ?? widget.profileData['jobCountry'])?.toString() ?? '';
-    final nationality = (widget.profileData['NationalityCountry'])?.toString() ?? '';
-    final gender = (widget.profileData['Gender'] ?? widget.profileData['gender'])?.toString() ?? '';
+    final jobCountry =
+        (widget.profileData['JobCountry'] ?? widget.profileData['jobCountry'])
+                ?.toString() ??
+            '';
+    final nationality =
+        (widget.profileData['NationalityCountry'])?.toString() ?? '';
+    final gender =
+        (widget.profileData['Gender'] ?? widget.profileData['gender'])
+                ?.toString() ??
+            '';
 
     final countries = <String>[];
     if (jobCountry.isNotEmpty) countries.add(jobCountry);
@@ -197,7 +198,8 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
     }
 
     if (countries.isEmpty) {
-      print('Proposal sync skipped: no JobCountry / jobCountry / NationalityCountry on user');
+      print(
+          'Proposal sync skipped: no JobCountry / jobCountry / NationalityCountry on user');
       return false;
     }
 
@@ -212,14 +214,14 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
         }
       }
     }
-    print('No proposal document found for uid=$uid (tried countries=$countries, genders=$genders)');
+    print(
+        'No proposal document found for uid=$uid (tried countries=$countries, genders=$genders)');
     return false;
   }
 
   Future<void> _verifyProfile() async {
     try {
       setState(() => _isLoading = true);
-
 
       // Update both documents
       await widget.documentRef.update({'VerificationStatus': 'Verified'});
@@ -228,13 +230,18 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
 
       final proposalOk = await _syncProposalVerificationStatus('Verified');
       if (!proposalOk) {
-        print("Proposal VerificationStatus not updated — path mismatch or missing doc");
+        print(
+            "Proposal VerificationStatus not updated — path mismatch or missing doc");
       }
 
       NotificationPage notificationPage = new NotificationPage();
-      notificationPage.sendNotification("Profile Verified", "Dear ${widget.profileData['name']}  your profile has been successfully verified ", "https://th.bing.com/th/id/OIP.odKDxcjwIWSoA4fLV3P1VQHaHa?rs=1&pid=ImgDetMain" ,widget.profileData["uid"] ?? widget.documentRef.id);
+      notificationPage.sendNotification(
+          "Profile Verified",
+          "Dear ${widget.profileData['name']}  your profile has been successfully verified ",
+          "https://th.bing.com/th/id/OIP.odKDxcjwIWSoA4fLV3P1VQHaHa?rs=1&pid=ImgDetMain",
+          widget.profileData["uid"] ?? widget.documentRef.id);
 
-      QuickAlert.show(
+      showAppAlert(
         context: context,
         type: QuickAlertType.success,
         text: proposalOk
@@ -246,7 +253,7 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
         },
       );
     } catch (e) {
-      QuickAlert.show(
+      showAppAlert(
         context: context,
         type: QuickAlertType.error,
         text: 'Error verifying profile: $e',
@@ -267,13 +274,19 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
 
       final proposalOk = await _syncProposalVerificationStatus('Rejected');
       if (!proposalOk) {
-        print("Proposal VerificationStatus not updated — path mismatch or missing doc");
+        print(
+            "Proposal VerificationStatus not updated — path mismatch or missing doc");
       }
 
       NotificationPage notificationPage = new NotificationPage();
-      notificationPage.sendNotification("Profile Verified", "Dear ${widget.profileData['name']}  your profile has been rejected ", "" ,widget.profileData["uid"] ?? widget.documentRef.id);
+      notificationPage.sendNotification(
+        "Profile Rejected",
+        "Dear ${widget.profileData['name']} your profile has been rejected.",
+        "",
+        widget.profileData["uid"] ?? widget.documentRef.id,
+      );
 
-      QuickAlert.show(
+      showAppAlert(
         context: context,
         type: QuickAlertType.success,
         text: proposalOk
@@ -285,13 +298,11 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
         },
       );
     } catch (e) {
-      QuickAlert.show(
+      showAppAlert(
         context: context,
         type: QuickAlertType.error,
         text: 'Error verifying profile: $e',
       );
-
-
     } finally {
       setState(() => _isLoading = false);
     }
@@ -307,20 +318,20 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-        padding: EdgeInsets.all(8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildImageComparison(),
-            SizedBox(height: 24),
-            _buildProfileDetails(),
-            SizedBox(height: 24),
-            _buildDocImgView(),
-            SizedBox(height: 24),
-            _buildActionButtons(),
-          ],
-        ),
-      ),
+              padding: EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildImageComparison(),
+                  SizedBox(height: 24),
+                  _buildProfileDetails(),
+                  SizedBox(height: 24),
+                  _buildDocImgView(),
+                  SizedBox(height: 24),
+                  _buildActionButtons(),
+                ],
+              ),
+            ),
     );
   }
 
@@ -364,8 +375,8 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
                         itemCount: (widget.profileData['ProfileImageUrls']
-                        as List<dynamic>?)
-                            ?.length ??
+                                    as List<dynamic>?)
+                                ?.length ??
                             0,
                         itemBuilder: (context, index) {
                           return Padding(
@@ -373,8 +384,7 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: GestureDetector(
-                                onTap: ()
-                                {
+                                onTap: () {
                                   _showFullScreenImage(
                                     context,
                                     widget.profileData['ProfileImageUrls'],
@@ -405,40 +415,44 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
                     SizedBox(height: 8),
                     widget.profileData['PersonalLiveImageUrl'] != null
                         ? ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: GestureDetector(
-                        onTap: ()
-                        {
+                            borderRadius: BorderRadius.circular(8),
+                            child: GestureDetector(
+                              onTap: () {
+                                List<dynamic> imageList = widget
+                                            .profileData['PersonalLiveImageUrl']
+                                        is List
+                                    ? List<dynamic>.from(widget
+                                        .profileData['PersonalLiveImageUrl'])
+                                    : [
+                                        widget
+                                            .profileData['PersonalLiveImageUrl']
+                                      ];
 
-                          List<dynamic> imageList = widget.profileData['PersonalLiveImageUrl'] is List
-                              ? List<dynamic>.from(widget.profileData['PersonalLiveImageUrl'])
-                              : [widget.profileData['PersonalLiveImageUrl']];
-
-                          _showFullScreenImage(
-                            context,
-                            imageList,
-                            0,
-                          );
-                        },
-                        child: Image.network(
-                          widget.profileData['PersonalLiveImageUrl'],
-                          height: 200,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    )
+                                _showFullScreenImage(
+                                  context,
+                                  imageList,
+                                  0,
+                                );
+                              },
+                              child: Image.network(
+                                widget.profileData['PersonalLiveImageUrl'],
+                                height: 200,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          )
                         : Container(
-                      height: 200,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Center(
-                        child: Text('No live image available'),
-                      ),
-                    ),
+                            height: 200,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Text('No live image available'),
+                            ),
+                          ),
                   ],
                 ),
               ),
@@ -448,7 +462,6 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
       ),
     );
   }
-
 
   Widget _buildDocImgView() {
     return Container(
@@ -481,12 +494,14 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-
                 SizedBox(
                   height: 200,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    itemCount: (widget.profileData['DocumentImageUrls'] as List<dynamic>?)?.length ?? 0,
+                    itemCount: (widget.profileData['DocumentImageUrls']
+                                as List<dynamic>?)
+                            ?.length ??
+                        0,
                     itemBuilder: (context, index) {
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
@@ -521,7 +536,8 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
     );
   }
 
-  void _showFullScreenImage(BuildContext context, List<dynamic> imageUrls, int initialIndex) {
+  void _showFullScreenImage(
+      BuildContext context, List<dynamic> imageUrls, int initialIndex) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -537,7 +553,8 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
                     initialScale: PhotoViewComputedScale.contained,
                     minScale: PhotoViewComputedScale.contained * 0.8,
                     maxScale: PhotoViewComputedScale.covered * 2,
-                    heroAttributes: PhotoViewHeroAttributes(tag: 'profile_image_$index'),
+                    heroAttributes:
+                        PhotoViewHeroAttributes(tag: 'profile_image_$index'),
                   );
                 },
                 itemCount: imageUrls.length,
@@ -545,7 +562,8 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
                   child: CircularProgressIndicator(
                     value: event == null
                         ? 0
-                        : event.cumulativeBytesLoaded / (event.expectedTotalBytes ?? 1),
+                        : event.cumulativeBytesLoaded /
+                            (event.expectedTotalBytes ?? 1),
                   ),
                 ),
                 pageController: PageController(initialPage: initialIndex),
@@ -573,36 +591,79 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
       {'icon': Icons.phone, 'title': 'Phone', 'value': 'PhoneNumber'},
       {'icon': Icons.cake, 'title': 'Age', 'value': 'Age'},
       {'icon': Icons.calendar_today, 'title': 'DOB', 'value': 'DateOfBirth'},
-      {'icon': Icons.location_city, 'title': 'City', 'value': 'NationalityCity'},
+      {
+        'icon': Icons.location_city,
+        'title': 'City',
+        'value': 'NationalityCity'
+      },
       {'icon': Icons.work, 'title': 'Profession', 'value': 'Profession'},
       {'icon': Icons.school, 'title': 'Education', 'value': 'Degree'},
       {'icon': Icons.public, 'title': 'Country', 'value': 'NationalityCountry'},
       {'icon': Icons.map, 'title': 'State', 'value': 'NationalityState'},
-      {'icon': Icons.flight, 'title': 'Abroad Country', 'value': 'AbroadCountry'},
-      {'icon': Icons.location_city, 'title': 'Abroad City', 'value': 'AbroadCity'},
+      {
+        'icon': Icons.flight,
+        'title': 'Abroad Country',
+        'value': 'AbroadCountry'
+      },
+      {
+        'icon': Icons.location_city,
+        'title': 'Abroad City',
+        'value': 'AbroadCity'
+      },
       {'icon': Icons.map, 'title': 'Abroad State', 'value': 'AbroadState'},
       {'icon': Icons.home, 'title': 'Residence', 'value': 'Residence'},
-      {'icon': Icons.location_on, 'title': 'Residence District', 'value': 'ResidenceDis'},
-      {'icon': Icons.family_restroom, 'title': 'Marital Status', 'value': 'MartialStatus'},
-      {'icon': Icons.child_friendly, 'title': 'Has Children', 'value': 'HasChildren'},
-      {'icon': Icons.group, 'title': 'Number of Children', 'value': 'NoOfChildren'},
+      {
+        'icon': Icons.location_on,
+        'title': 'Residence District',
+        'value': 'ResidenceDis'
+      },
+      {
+        'icon': Icons.family_restroom,
+        'title': 'Marital Status',
+        'value': 'MartialStatus'
+      },
+      {
+        'icon': Icons.child_friendly,
+        'title': 'Has Children',
+        'value': 'HasChildren'
+      },
+      {
+        'icon': Icons.group,
+        'title': 'Number of Children',
+        'value': 'NoOfChildren'
+      },
       {'icon': Icons.height, 'title': 'Height', 'value': 'Height'},
       {'icon': Icons.fitness_center, 'title': 'Weight', 'value': 'Weight'},
       {'icon': Icons.color_lens, 'title': 'Skin Tone', 'value': 'skinTone'},
       {'icon': Icons.person_outline, 'title': 'Gender', 'value': 'Gender'},
       {'icon': Icons.handshake, 'title': 'Religion', 'value': 'Religion'},
       {'icon': Icons.group_work, 'title': 'Sect', 'value': 'Sect'},
-      {'icon': Icons.accessibility, 'title': 'Disability', 'value': 'Disability'},
+      {
+        'icon': Icons.accessibility,
+        'title': 'Disability',
+        'value': 'Disability'
+      },
       {'icon': Icons.language, 'title': 'Ethnicity', 'value': 'Ethnicity'},
       {'icon': Icons.family_restroom, 'title': 'Tribe', 'value': 'Tribe'},
-      {'icon': Icons.business_center, 'title': 'Job Country', 'value': 'JobCountry'},
+      {
+        'icon': Icons.business_center,
+        'title': 'Job Country',
+        'value': 'JobCountry'
+      },
       {'icon': Icons.work, 'title': 'Job Title', 'value': 'JobTitle'},
-      {'icon': Icons.description, 'title': 'Job Description', 'value': 'JobDesc'},
+      {
+        'icon': Icons.description,
+        'title': 'Job Description',
+        'value': 'JobDesc'
+      },
       // {'icon': Icons.attach_money, 'title': 'Income', 'value': 'Income'},
       {'icon': Icons.book, 'title': 'Field', 'value': 'Field'},
-      {'icon': Icons.description, 'title': 'Education Description', 'value': 'EducationDescription'},
+      {
+        'icon': Icons.description,
+        'title': 'Education Description',
+        'value': 'EducationDescription'
+      },
     ];
-
 
     return Container(
       padding: EdgeInsets.all(16),
@@ -629,10 +690,10 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
           ),
           SizedBox(height: 16),
           ...details.map((detail) => _buildDetailItem(
-            icon: detail['icon'] as IconData,
-            title: detail['title'] as String,
-            value: widget.profileData[detail['value']]?.toString() ?? 'N/A',
-          )),
+                icon: detail['icon'] as IconData,
+                title: detail['title'] as String,
+                value: widget.profileData[detail['value']]?.toString() ?? 'N/A',
+              )),
         ],
       ),
     );
@@ -650,7 +711,8 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
         children: [
           Icon(icon, color: Colors.indigo),
           SizedBox(width: 16),
-          Expanded( // This allows text to wrap inside available space
+          Expanded(
+            // This allows text to wrap inside available space
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -664,7 +726,8 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
                 Text(
                   value,
                   maxLines: 12,
-                  overflow: TextOverflow.ellipsis, // Shows "..." if text exceeds max lines
+                  overflow: TextOverflow
+                      .ellipsis, // Shows "..." if text exceeds max lines
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -676,7 +739,6 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
         ],
       ),
     );
-
   }
 
   Widget _buildActionButtons() {
@@ -692,7 +754,8 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: Text('Verify Profile' , style: TextStyle(color: Colors.white)),
+            child:
+                Text('Verify Profile', style: TextStyle(color: Colors.white)),
           ),
         ),
         SizedBox(width: 16),
@@ -706,7 +769,8 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child:  Text('Remove Profile' , style: TextStyle(color: Colors.white)),
+            child:
+                Text('Remove Profile', style: TextStyle(color: Colors.white)),
           ),
         ),
       ],

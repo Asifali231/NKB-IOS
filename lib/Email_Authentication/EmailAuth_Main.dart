@@ -16,7 +16,16 @@ class _EmailAuth_MainState extends State<EmailAuth_Main> {
   final PageController _pageController = PageController(initialPage: 0);
   final GenerateOtpAndSendMail _otpService = GenerateOtpAndSendMail();
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) FocusManager.instance.primaryFocus?.unfocus();
+    });
+  }
+
   void navigateToNextPage() {
+    FocusManager.instance.primaryFocus?.unfocus();
     int nextPage = _pageController.page!.toInt() + 1;
     if (nextPage < 2) {
       _pageController.animateToPage(nextPage,
@@ -25,6 +34,7 @@ class _EmailAuth_MainState extends State<EmailAuth_Main> {
   }
 
   void navigateToPrevPage() {
+    FocusManager.instance.primaryFocus?.unfocus();
     int nextPage = _pageController.page!.toInt() - 1;
     if (nextPage < 2) {
       _pageController.animateToPage(nextPage,
@@ -38,7 +48,6 @@ class _EmailAuth_MainState extends State<EmailAuth_Main> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        height: MediaQuery.of(context).size.height,
         width: MediaQuery.of(context).size.width,
         child: PageView(
           physics: NeverScrollableScrollPhysics(), // Disable manual scrolling

@@ -8,8 +8,9 @@ import 'package:nikah_blessing/Packages_Module/allPackagesModule.dart';
 import 'package:nikah_blessing/UpdateProfile/UpdateFilters.dart';
 import 'package:nikah_blessing/User_Home_Pages/AccountModule/PrivacyPolicyPage.dart';
 import 'package:nikah_blessing/User_Home_Pages/AccountModule/PolicyPage.dart';
-import 'package:nikah_blessing/theme/app_brand_colors.dart';
-import 'package:quickalert/quickalert.dart';
+import 'package:nikah_blessing/theme/app_alert.dart';
+import 'package:nikah_blessing/theme/app_colors.dart';
+import 'package:quickalert/models/quickalert_type.dart';
 
 import 'UserDeletion.dart';
 import 'editProfile_Page.dart';
@@ -202,7 +203,7 @@ class _Account_SettingState extends State<Account_Setting> {
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;
 
-    QuickAlert.show(
+    showAppAlert(
       context: context,
       type: QuickAlertType.success,
       title: 'Logged Out',
@@ -221,15 +222,17 @@ class _Account_SettingState extends State<Account_Setting> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Confirm Delete'),
         content: const Text(
-          'Are you sure you want to delete your account? This action cannot be undone.',
+          'Are you sure you want to delete your account? This action cannot be undone.\n\nDeleting your account does not cancel an active App Store subscription. Cancel it in your Apple account subscription settings.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
+            style: TextButton.styleFrom(foregroundColor: kBrandPrimary),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: kBrandPrimary),
             child: const Text('Delete'),
           ),
         ],
@@ -481,7 +484,7 @@ class _Account_SettingState extends State<Account_Setting> {
                       margin: const EdgeInsets.symmetric(horizontal: 14),
                       padding: const EdgeInsets.fromLTRB(22, 24, 22, 28),
                       decoration: BoxDecoration(
-                        gradient: AppBrandColors.brandGradient,
+                        gradient: kBrandGradient,
                         borderRadius: BorderRadius.circular(30),
                         boxShadow: [
                           BoxShadow(
@@ -669,8 +672,8 @@ class _Account_SettingState extends State<Account_Setting> {
                     _buildSection(
                       title: 'Subscription Details',
                       child: StreamBuilder<bool>(
-                        stream:
-                            PaymentVisibilityService.premiumFeaturesUnlockedStream(),
+                        stream: PaymentVisibilityService
+                            .premiumFeaturesUnlockedStream(),
                         builder: (context, snapshot) {
                           final premiumUnlocked = snapshot.data ?? false;
 
@@ -687,8 +690,7 @@ class _Account_SettingState extends State<Account_Setting> {
                               _buildSubscriptionItem(
                                 icon: Icons.people_outline_rounded,
                                 title: 'Daily Profiles',
-                                value:
-                                    _dailyProfilesLabel(premiumUnlocked),
+                                value: _dailyProfilesLabel(premiumUnlocked),
                                 color: const Color(0xFF2D8CFF),
                               ),
                               const SizedBox(height: 16),

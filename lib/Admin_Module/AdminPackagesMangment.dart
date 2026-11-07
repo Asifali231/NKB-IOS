@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:nikah_blessing/FirebaseOperation/proposal_feed_settings.dart';
 
 class AdminPackagesManagement extends StatefulWidget {
   const AdminPackagesManagement({Key? key}) : super(key: key);
@@ -13,7 +14,10 @@ class _AdminPackagesManagementState extends State<AdminPackagesManagement>
   late TabController _tabController;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _isLoading = false;
+  bool _isFeedSettingsLoading = true;
   String? _errorMessage;
+  bool _prioritizeExactMatches = true;
+  bool _showFallbackNotice = true;
 
   // Package form controllers - one set for each package
   final Map<String, Map<String, TextEditingController>> packageControllers = {};
@@ -57,17 +61,54 @@ class _AdminPackagesManagementState extends State<AdminPackagesManagement>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _initializePackages();
+    _loadFeedSettings();
+  }
+
+  Future<void> _loadFeedSettings() async {
+    try {
+      final settings = await ProposalFeedSettings.load(_firestore);
+      if (!mounted) return;
+      setState(() {
+        _prioritizeExactMatches = settings.prioritizeExactMatches;
+        _showFallbackNotice = settings.showFallbackNotice;
+        _isFeedSettingsLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isFeedSettingsLoading = false);
+      _showError('Error loading proposal feed settings: $e');
+    }
+  }
+
+  Future<void> _saveFeedSettings() async {
+    setState(() => _isLoading = true);
+    try {
+      await ProposalFeedSettings.document(_firestore).set({
+        'prioritizeExactMatches': _prioritizeExactMatches,
+        'showFallbackNotice': _showFallbackNotice,
+      }, SetOptions(merge: true));
+      _showSuccess('Proposal feed settings saved');
+    } catch (e) {
+      _showError('Error saving proposal feed settings: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   // Initialize controllers for a package
   void _initializeControllersForPackage(String packageId, Map<String, dynamic> data) {
     packageControllers[packageId] = {
+      'name': TextEditingController(
+        text: data['name']?.toString() ?? packageId,
+      ),
       'ChatCredit': TextEditingController(text: data['ChatCredit'].toString()),
       'DailyProfiles': TextEditingController(text: data['DailyProfiles'].toString()),
       'days': TextEditingController(text: data['days'].toString()),
-      'price': TextEditingController(text: data['price'].toString()),
+      'price': TextEditingController(text: data['price']?.toString() ?? ''),
+      'ios_product_id':
+          TextEditingController(text: data['ios_product_id']?.toString() ?? ''),
     };
   }
 
@@ -167,19 +208,35 @@ class _AdminPackagesManagementState extends State<AdminPackagesManagement>
       final controllers = packageControllers[docId];
       if (controllers == null) throw 'Package controllers not found';
 
-      final chatCredit = _parseIntSafely(controllers['ChatCredit']!.text, 'Chat credits')!;
-      final dailyProfiles = _parseIntSafely(controllers['DailyProfiles']!.text, 'Daily profiles')!;
-      final price = _parseIntSafely(controllers['price']!.text, 'Price')!;
+      final packageSnapshot =
+          await _firestore.collection('packages').doc(docId).get();
+      if (!packageSnapshot.exists) throw 'Package not found';
+      final isIosSubscription =
+          packageSnapshot.data()?['isIosSubscription'] == true;
+      final name = controllers['name']!.text.trim();
+      if (name.isEmpty) throw 'Package name cannot be empty';
+      final chatCredit =
+          _parseIntSafely(controllers['ChatCredit']!.text, 'Chat credits')!;
+      final dailyProfiles = _parseIntSafely(
+          controllers['DailyProfiles']!.text, 'Daily profiles')!;
+      final price = isIosSubscription
+          ? null
+          : _parseIntSafely(controllers['price']!.text, 'Price');
 
-      if (chatCredit <= 0) throw 'Chat credits must be greater than 0';
-      if (dailyProfiles <= 0) throw 'Daily profiles must be greater than 0';
-      if (price < 0) throw 'Price cannot be negative';
+      if (chatCredit < 0 || (!isIosSubscription && chatCredit == 0)) {
+        throw 'Chat credits must be greater than 0';
+      }
+      if (dailyProfiles < 0 || (!isIosSubscription && dailyProfiles == 0)) {
+        throw 'Daily profiles must be greater than 0';
+      }
+      if (price != null && price < 0) throw 'Price cannot be negative';
 
       final data = {
+        'name': name,
         'ChatCredit': chatCredit,
         'DailyProfiles': dailyProfiles,
         'days': controllers['days']!.text,
-        'price': price,
+        if (price != null) 'price': price,
       };
 
       await _firestore.collection('packages').doc(docId).update(data);
@@ -188,6 +245,52 @@ class _AdminPackagesManagementState extends State<AdminPackagesManagement>
       _showError(e.toString());
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _updateIosProductId(String docId) async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final controller = packageControllers[docId]?['ios_product_id'];
+      if (controller == null) throw 'Package controllers not found';
+
+      await _firestore.collection('packages').doc(docId).update({
+        'ios_product_id': controller.text.trim(),
+      });
+      _showSuccess('iOS Product ID updated successfully');
+    } catch (e) {
+      _showError('Error updating iOS Product ID: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _updateDailyProfilesOnly(String docId) async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final controller = packageControllers[docId]?['DailyProfiles'];
+      if (controller == null) throw 'Package controllers not found';
+
+      final dailyProfiles =
+          _parseIntSafely(controller.text, 'Daily profiles')!;
+      if (dailyProfiles < 0) throw 'Daily profiles cannot be negative';
+
+      await _firestore.collection('packages').doc(docId).update({
+        'DailyProfiles': dailyProfiles,
+      });
+      _showSuccess('Daily profiles updated successfully');
+    } catch (e) {
+      _showError('Error updating daily profiles: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -235,6 +338,14 @@ class _AdminPackagesManagementState extends State<AdminPackagesManagement>
             ),
             const Divider(height: 24),
             TextFormField(
+              controller: controllers['name'],
+              decoration: const InputDecoration(
+                labelText: 'Display Name',
+                icon: Icon(Icons.label_outline),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
               controller: controllers['ChatCredit'],
               decoration: const InputDecoration(
                 labelText: 'Chat Credits',
@@ -252,6 +363,16 @@ class _AdminPackagesManagementState extends State<AdminPackagesManagement>
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton.icon(
+                onPressed:
+                    _isLoading ? null : () => _updateDailyProfilesOnly(doc.id),
+                icon: const Icon(Icons.save_outlined),
+                label: const Text('Save Daily Profiles only'),
+              ),
+            ),
+            const SizedBox(height: 12),
             TextFormField(
               controller: controllers['days'],
               decoration: const InputDecoration(
@@ -260,13 +381,33 @@ class _AdminPackagesManagementState extends State<AdminPackagesManagement>
               ),
             ),
             const SizedBox(height: 12),
-            TextFormField(
-              controller: controllers['price'],
-              decoration: const InputDecoration(
-                labelText: 'Price (PKR)',
-                icon: Icon(Icons.attach_money),
+            if (data['isIosSubscription'] != true) ...[
+              TextFormField(
+                controller: controllers['price'],
+                decoration: const InputDecoration(
+                  labelText: 'Price (PKR)',
+                  icon: Icon(Icons.attach_money),
+                ),
+                keyboardType: TextInputType.number,
               ),
-              keyboardType: TextInputType.number,
+              const SizedBox(height: 12),
+            ],
+            TextFormField(
+              controller: controllers['ios_product_id'],
+              decoration: const InputDecoration(
+                labelText: 'iOS Product ID (optional)',
+                hintText: 'Leave blank or enter KHALI to disable iOS',
+                icon: Icon(Icons.apple),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton.icon(
+                onPressed: _isLoading ? null : () => _updateIosProductId(doc.id),
+                icon: const Icon(Icons.save_outlined),
+                label: const Text('Save iOS Product ID only'),
+              ),
             ),
             const SizedBox(height: 24),
             Row(
@@ -387,6 +528,7 @@ class _AdminPackagesManagementState extends State<AdminPackagesManagement>
     final dailyProfilesController = TextEditingController();
     final daysController = TextEditingController();
     final priceController = TextEditingController();
+    String iosProductId = '';
 
     showDialog(
       context: context,
@@ -418,6 +560,13 @@ class _AdminPackagesManagementState extends State<AdminPackagesManagement>
                 controller: priceController,
                 decoration: const InputDecoration(labelText: 'Price (PKR)'),
                 keyboardType: TextInputType.number,
+              ),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'iOS Product ID (optional)',
+                  hintText: 'Leave blank or enter KHALI to disable iOS',
+                ),
+                onChanged: (value) => iosProductId = value.trim(),
               ),
             ],
           ),
@@ -452,6 +601,7 @@ class _AdminPackagesManagementState extends State<AdminPackagesManagement>
                   'DailyProfiles': dailyProfiles,
                   'days': days,
                   'price': price,
+                  'ios_product_id': iosProductId,
                 });
                 
                 _showSuccess('Package added successfully');
@@ -503,6 +653,7 @@ class _AdminPackagesManagementState extends State<AdminPackagesManagement>
           tabs: const [
             Tab(icon: Icon(Icons.inventory_2), text: 'Packages'),
             Tab(icon: Icon(Icons.local_offer), text: 'Promocodes'),
+            Tab(icon: Icon(Icons.filter_alt), text: 'Feed'),
           ],
         ),
       ),
@@ -714,6 +865,7 @@ class _AdminPackagesManagementState extends State<AdminPackagesManagement>
                                         ),
                                       ],
                                     ),
+
                                   ],
                                 ),
                                 trailing: IconButton(
@@ -758,6 +910,53 @@ class _AdminPackagesManagementState extends State<AdminPackagesManagement>
                   ),
                 ],
               ),
+
+              if (_isFeedSettingsLoading)
+                const Center(child: CircularProgressIndicator())
+              else
+                ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    const Text(
+                      'Proposal Feed',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Fallback profiles always remain visible. These settings are shared by iOS and Android.',
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Prioritize exact filter matches'),
+                      subtitle: const Text(
+                        'Show exact and relaxed matches before other profiles.',
+                      ),
+                      value: _prioritizeExactMatches,
+                      onChanged: (value) =>
+                          setState(() => _prioritizeExactMatches = value),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Show fallback notice'),
+                      subtitle: const Text(
+                        'Tell users when their selected country has no matches.',
+                      ),
+                      value: _showFallbackNotice,
+                      onChanged: (value) =>
+                          setState(() => _showFallbackNotice = value),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: _isLoading ? null : _saveFeedSettings,
+                      icon: const Icon(Icons.save),
+                      label: const Text('Save Feed Settings'),
+                    ),
+                  ],
+                ),
             ],
           ),
           _buildLoadingOverlay(),

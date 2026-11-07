@@ -77,11 +77,9 @@ class _DOB_PageState extends State<DOB_Page> {
   void _validateAndContinue() {
     if (age >= 18 && age <= 54) {
       setState(() {
-
         UserData.Age = age;
         UserData.DateOfBirth = DateOfBirth;
         widget.navigateToNextPage();
-
       });
     } else {
       setState(() {
@@ -101,6 +99,7 @@ class _DOB_PageState extends State<DOB_Page> {
           ),
           Expanded(
             child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -148,8 +147,10 @@ class _DOB_PageState extends State<DOB_Page> {
                                 width: 120,
                                 decoration: BoxDecoration(
                                   border: Border(
-                                    top: BorderSide(color: Colors.pink, width: 1),
-                                    bottom: BorderSide(color: Colors.pink, width: 1),
+                                    top: BorderSide(
+                                        color: Colors.pink, width: 1),
+                                    bottom: BorderSide(
+                                        color: Colors.pink, width: 1),
                                   ),
                                 ),
                               ),
@@ -160,10 +161,11 @@ class _DOB_PageState extends State<DOB_Page> {
                                 useMagnifier: true,
                                 magnification: 1.0,
                                 onSelectedItemChanged: _onSelectedItemChanged,
-                                childDelegate: ListWheelChildLoopingListDelegate(
+                                childDelegate:
+                                    ListWheelChildLoopingListDelegate(
                                   children: List<Widget>.generate(
                                     months.length,
-                                        (index) => Center(
+                                    (index) => Center(
                                       child: Text(
                                         months[index],
                                         style: TextStyle(
@@ -197,9 +199,10 @@ class _DOB_PageState extends State<DOB_Page> {
                                 _selectedDateIndex, _selectedYearIndex);
                           });
                         },
-                        textStyle: const TextStyle(color: Colors.grey, fontSize: 18),
+                        textStyle:
+                            const TextStyle(color: Colors.grey, fontSize: 18),
                         selectedTextStyle:
-                        const TextStyle(color: Colors.black, fontSize: 20),
+                            const TextStyle(color: Colors.black, fontSize: 20),
                         decoration: const BoxDecoration(
                           border: Border(
                             top: BorderSide(color: Colors.pink, width: 1),
@@ -222,9 +225,10 @@ class _DOB_PageState extends State<DOB_Page> {
                                 _selectedDateIndex, _selectedYearIndex);
                           });
                         },
-                        textStyle: const TextStyle(color: Colors.grey, fontSize: 18),
+                        textStyle:
+                            const TextStyle(color: Colors.grey, fontSize: 18),
                         selectedTextStyle:
-                        const TextStyle(color: Colors.black, fontSize: 20),
+                            const TextStyle(color: Colors.black, fontSize: 20),
                         decoration: const BoxDecoration(
                           border: Border(
                             top: BorderSide(color: Colors.pink, width: 1),
@@ -295,7 +299,6 @@ class _DOB_PageState extends State<DOB_Page> {
             padding: EdgeInsets.symmetric(vertical: 20, horizontal: 20),
             decoration: BoxDecoration(
               color: Colors.transparent,
-
             ),
             child: InkWell(
               onTap: _validateAndContinue,
@@ -322,5 +325,4 @@ class _DOB_PageState extends State<DOB_Page> {
       ),
     );
   }
-
 }

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:nikah_blessing/DataClass/UserData.dart';
 import 'package:nikah_blessing/Make_Profile/profile_media_upload_service.dart';
@@ -32,6 +33,9 @@ class _Profile_Pictures_PageState extends State<Profile_Pictures_Page> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) FocusManager.instance.primaryFocus?.unfocus();
+    });
     final existingUploaded =
         List<String>.from(UserData.UploadedProfileImageUrls);
     if (existingUploaded.length < 5) {
@@ -63,25 +67,42 @@ class _Profile_Pictures_PageState extends State<Profile_Pictures_Page> {
   }
 
   Future<void> _pickAndUploadImage(int index) async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile == null) return;
+    XFile? pickedFile;
+    try {
+      pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+    } on PlatformException catch (error) {
+      if (!mounted) return;
+      final permissionDenied = error.code.toLowerCase().contains('denied') ||
+          error.code.toLowerCase().contains('restricted');
+      setState(() {
+        imageError = permissionDenied
+            ? 'Photo access is disabled. Allow Photos access in Settings and try again.'
+            : 'Could not open your photos. Please try again.';
+      });
+      return;
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => imageError = 'Could not open your photos: $error');
+      return;
+    }
+    final imageFile = pickedFile;
+    if (imageFile == null) return;
 
     final previousUrl = _uploadedImageUrls[index];
     setState(() {
       imageError = '';
-      imagesPath[index] = pickedFile.path;
+      imagesPath[index] = imageFile.path;
       _uploadedImageUrls[index] = '';
       _uploadingSlots[index] = true;
     });
     _syncUserMedia();
 
-    if (previousUrl.isNotEmpty) {
-      await ProfileMediaUploadService.deleteUploadedFile(previousUrl);
-    }
-
     try {
+      if (previousUrl.isNotEmpty) {
+        await ProfileMediaUploadService.deleteUploadedFile(previousUrl);
+      }
       final uploadedUrl = await ProfileMediaUploadService.uploadImageFile(
-        file: File(pickedFile.path),
+        file: File(imageFile.path),
         folderName: 'ProfileImages',
         slotId: 'profile_${index}_${DateTime.now().millisecondsSinceEpoch}',
       );
@@ -130,6 +151,13 @@ class _Profile_Pictures_PageState extends State<Profile_Pictures_Page> {
     setState(() {
       imageError = '';
     });
+
+    if (_uploadedImageUrls[0].isEmpty) {
+      setState(() {
+        imageError = 'Please upload and wait for your cover image first.';
+      });
+      return;
+    }
 
     if (_hasPendingUploads) {
       setState(() {
@@ -190,10 +218,17 @@ class _Profile_Pictures_PageState extends State<Profile_Pictures_Page> {
                     ),
                   ),
                 if (isUploading)
-                  Container(
-                    color: Colors.black45,
-                    child: const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
+                  const Positioned(
+                    top: 6,
+                    right: 6,
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        color: Colors.white,
+                        backgroundColor: Colors.black45,
+                      ),
                     ),
                   ),
                 if (isUploaded && !isUploading)
@@ -274,6 +309,9 @@ class _Profile_Pictures_PageState extends State<Profile_Pictures_Page> {
     );
   }
 
+  bool get _canContinue =>
+      _uploadedImageUrls[0].isNotEmpty && !_hasPendingUploads;
+
   @override
   Widget build(BuildContext context) {
     final uploadedCount =
@@ -281,192 +319,180 @@ class _Profile_Pictures_PageState extends State<Profile_Pictures_Page> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Container(
-        margin: const EdgeInsets.only(top: 68),
-        height: MediaQuery.of(context).size.height,
-        width: MediaQuery.of(context).size.width,
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 20),
-                      const Text(
-                        "Let's make your profile charming \nwith your beautiful clicks!",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                          height: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        _hasPendingUploads
-                            ? 'Uploading your images in the background...'
-                            : 'Please upload at least 3 pictures',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          height: 1.5,
-                          color: _hasPendingUploads
-                              ? const Color(0xFF5E35B1)
-                              : Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF6F1FF),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: const Color(0xFF8E5CE6).withOpacity(0.2),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.cloud_done_outlined,
-                              color: Color(0xFF5E35B1),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                '$uploadedCount of 5 images uploaded',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF45227A),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      GridView.count(
-                        shrinkWrap: true,
-                        crossAxisCount: 3,
-                        childAspectRatio: 0.7,
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
-                        physics: const NeverScrollableScrollPhysics(),
-                        children: List.generate(5, _buildImageTile),
-                      ),
-                      const SizedBox(height: 5),
-                      const Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: Colors.blueGrey,
-                            size: 16,
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'We respect your hijab and let you control who can view your pictures',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.blueGrey,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'Share this info with',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Radio<String>(
-                                  value: '1',
-                                  groupValue: _sharewith,
-                                  onChanged: (String? value) {
-                                    setState(() {
-                                      _sharewith = value ?? '';
-                                    });
-                                    _syncUserMedia();
-                                  },
-                                ),
-                                const Flexible(
-                                    child: Text('Only with friends')),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Radio<String>(
-                                  value: '3',
-                                  groupValue: _sharewith,
-                                  onChanged: (String? value) {
-                                    setState(() {
-                                      _sharewith = value ?? '';
-                                    });
-                                    _syncUserMedia();
-                                  },
-                                ),
-                                const Flexible(child: Text('With everyone')),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (imageError.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          imageError,
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Let's make your profile charming \nwith your beautiful clicks!",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  height: 1.2,
                 ),
               ),
-            ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: InkWell(
-                onTap: validateAndNavigate,
-                child: Container(
-                  height: 45,
-                  width: MediaQuery.of(context).size.width - 40,
-                  margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.all(Radius.circular(10)),
-                    border: Border.all(color: Colors.black54),
+              const SizedBox(height: 10),
+              Text(
+                _hasPendingUploads
+                    ? 'Uploading your images in the background...'
+                    : _uploadedImageUrls[0].isEmpty
+                        ? 'Upload your cover image and at least 2 more pictures'
+                        : 'Please upload at least 3 pictures',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  height: 1.5,
+                  color: _hasPendingUploads
+                      ? const Color(0xFF5E35B1)
+                      : Colors.black,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF6F1FF),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: const Color(0xFF8E5CE6).withOpacity(0.2),
                   ),
-                  child: const Center(
-                    child: Text(
-                      'Continue',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.cloud_done_outlined,
+                      color: Color(0xFF5E35B1),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '$uploadedCount of 5 images uploaded',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF45227A),
+                        ),
                       ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              GridView.count(
+                shrinkWrap: true,
+                crossAxisCount: 3,
+                childAspectRatio: 0.7,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                physics: const NeverScrollableScrollPhysics(),
+                children: List.generate(5, _buildImageTile),
+              ),
+              const SizedBox(height: 5),
+              const Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: Colors.blueGrey,
+                    size: 16,
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'We respect your hijab and let you control who can view your pictures',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blueGrey,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Share this info with',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Radio<String>(
+                          value: '1',
+                          groupValue: _sharewith,
+                          onChanged: (String? value) {
+                            setState(() {
+                              _sharewith = value ?? '';
+                            });
+                            _syncUserMedia();
+                          },
+                        ),
+                        const Flexible(child: Text('Only with friends')),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Radio<String>(
+                          value: '3',
+                          groupValue: _sharewith,
+                          onChanged: (String? value) {
+                            setState(() {
+                              _sharewith = value ?? '';
+                            });
+                            _syncUserMedia();
+                          },
+                        ),
+                        const Flexible(child: Text('With everyone')),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (imageError.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  imageError,
+                  style: const TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 45,
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _canContinue ? validateAndNavigate : null,
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.black,
+                    backgroundColor: Colors.white,
+                    disabledForegroundColor: Colors.black38,
+                    disabledBackgroundColor: Colors.white70,
+                    side: const BorderSide(color: Colors.black54),
+                  ),
+                  child: const Text(
+                    'Continue',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

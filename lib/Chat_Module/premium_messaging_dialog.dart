@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nikah_blessing/FirebaseOperation/payment_visibility_service.dart';
 import 'package:nikah_blessing/Packages_Module/allPackagesModule.dart';
-import 'package:nikah_blessing/theme/app_brand_colors.dart';
+import 'package:nikah_blessing/theme/app_colors.dart';
 
 Future<bool> showPremiumMessagingDialog(BuildContext context) async {
   if (!context.mounted) return false;
@@ -33,7 +33,7 @@ Future<bool> showPremiumMessagingDialog(BuildContext context) async {
                 color: Colors.white.withOpacity(0.10),
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
-                  color: AppBrandColors.brandPurple,
+                  color: kBrandPrimary,
                 ),
               ),
               child: Row(
@@ -65,7 +65,7 @@ Future<bool> showPremiumMessagingDialog(BuildContext context) async {
                 color: Colors.white.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: AppBrandColors.brandPurple,
+                  color: kBrandPrimary,
                 ),
               ),
               child: Row(
@@ -137,7 +137,7 @@ Future<bool> showPremiumMessagingDialog(BuildContext context) async {
                               ],
                             ),
                             border: Border.all(
-                              color: AppBrandColors.brandPurple,
+                              color: kBrandPrimary,
                             ),
                             boxShadow: [
                               BoxShadow(
@@ -248,7 +248,7 @@ Future<bool> showPremiumMessagingDialog(BuildContext context) async {
                                         borderRadius:
                                             BorderRadius.circular(999),
                                         border: Border.all(
-                                          color: AppBrandColors.brandPurple,
+                                          color: kBrandPrimary,
                                         ),
                                       ),
                                       child: const Text(
@@ -323,7 +323,7 @@ Future<bool> showPremiumMessagingDialog(BuildContext context) async {
                                               foregroundColor: Colors.white,
                                               side: BorderSide(
                                                 color:
-                                                    AppBrandColors.brandPurple,
+                                                    kBrandPrimary,
                                               ),
                                               padding:
                                                   const EdgeInsets.symmetric(
@@ -350,7 +350,7 @@ Future<bool> showPremiumMessagingDialog(BuildContext context) async {
                                           child: DecoratedBox(
                                             decoration: BoxDecoration(
                                               gradient:
-                                                  AppBrandColors.brandGradient,
+                                                  kBrandGradient,
                                               borderRadius:
                                                   BorderRadius.circular(18),
                                               boxShadow: [

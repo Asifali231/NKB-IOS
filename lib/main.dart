@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:nikah_blessing/Payement_Module/in_app_purchase_service.dart';
 import 'package:nikah_blessing/User_Home_Pages/user_main.dart';
 import 'package:nikah_blessing/onBoardingScreens.dart';
 import 'firebase_options.dart';
@@ -11,6 +12,7 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await InAppPurchaseService.instance.configureAtStartup();
   runApp(const MyApp());
 }
 
@@ -28,9 +30,11 @@ class KeyboardGuardObserver extends NavigatorObserver {
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) => _guard();
   @override
-  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) => _guard();
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
+      _guard();
   @override
-  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) => _guard();
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _guard();
 }
 
 class MyApp extends StatelessWidget {

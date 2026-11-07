@@ -6,16 +6,18 @@ import 'package:select_searchable_list/select_searchable_list.dart';
 class Apperance extends StatefulWidget {
   final VoidCallback navigateToNextPage, navigateToPrevPage;
 
-  Apperance({required this.navigateToNextPage, required this.navigateToPrevPage});
+  Apperance(
+      {required this.navigateToNextPage, required this.navigateToPrevPage});
 
   @override
   State<Apperance> createState() => _ApperanceState();
 }
 
 class _ApperanceState extends State<Apperance> {
-
-  TextEditingController HeightTextEditorController = new TextEditingController();
-  TextEditingController WeightTextEditingController = new TextEditingController();
+  TextEditingController HeightTextEditorController =
+      new TextEditingController();
+  TextEditingController WeightTextEditingController =
+      new TextEditingController();
 
 // Define a variable to keep track of the selected skin tone
   String _selectedSkinTone = ""; // Allow null values
@@ -122,9 +124,6 @@ class _ApperanceState extends State<Apperance> {
     'Fit',
   ];
 
-
-
-
   double parseHeight(String height) {
     final regex = RegExp(r'(\d+) feet(?: (\d+) inch(?:es)?)?');
     final match = regex.firstMatch(height);
@@ -141,31 +140,24 @@ class _ApperanceState extends State<Apperance> {
     return 0.0;
   }
 
+  void validateAndNavigate() {
+    if (_selectedHeight == 0.0) {
+      setState(() {
+        heightError = "Please Select Your Height";
+      });
 
-  void validateAndNavigate ()
-  {
+      print("Please Select Your Height");
+    }
 
-    if(_selectedHeight == 0.0)
-      {
-        setState(() {
-          heightError = "Please Select Your Height";
-        });
-
-        print("Please Select Your Height");
-      }
-
-    if(_selectedBodyType == "")
-    {
+    if (_selectedBodyType == "") {
       setState(() {
         bodyTypeError = "Please Select Your BodyType";
       });
 
       print("Please Select Your BodyType");
-
     }
 
-    if(_selectedSkinTone == "")
-    {
+    if (_selectedSkinTone == "") {
       setState(() {
         skinError = "Please Select Your SkinTone";
       });
@@ -173,8 +165,7 @@ class _ApperanceState extends State<Apperance> {
       print("Please Select Your SkinTone");
     }
 
-    if(WeightTextEditingController.text.toString() == "")
-    {
+    if (WeightTextEditingController.text.toString() == "") {
       setState(() {
         weightError = "Please Select Your Weight";
       });
@@ -182,36 +173,34 @@ class _ApperanceState extends State<Apperance> {
       print("Please Select Your Weight");
     }
 
+    if (_selectedHeight != 0.0 &&
+        _selectedSkinTone != "" &&
+        _selectedBodyType != "") {
+      setState(() {
+        UserData.Height = _selectedHeight;
+        UserData.skinTone = _selectedSkinTone;
+        UserData.bodyType = _selectedBodyType;
+        UserData.Weight = WeightTextEditingController.text.toString();
+        UserData.displayHeight = _selectedDisplayHeight;
+      });
 
-    if(_selectedHeight != 0.0 && _selectedSkinTone != "" && _selectedBodyType != "")
-      {
-        setState(() {
-          UserData.Height = _selectedHeight;
-          UserData.skinTone =_selectedSkinTone;
-          UserData.bodyType = _selectedBodyType;
-          UserData.Weight = WeightTextEditingController.text.toString();
-          UserData.displayHeight = _selectedDisplayHeight;
-        });
-
-
-        print( "navigating .....");
-        widget.navigateToNextPage();
-      }
+      print("navigating .....");
+      widget.navigateToNextPage();
+    }
 
     widget.navigateToNextPage();
-
   }
+
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: EdgeInsets.only(top: 78),
-
-      height: MediaQuery.of(context).size.height,
       width: MediaQuery.of(context).size.width,
       child: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               child: Padding(
                 padding: EdgeInsets.only(right: 20, left: 20),
                 child: Column(
@@ -241,21 +230,27 @@ class _ApperanceState extends State<Apperance> {
                                     child: Container(
                                       padding: EdgeInsets.only(right: 0),
                                       child: DropDownTextField(
-                                        textEditingController: HeightTextEditorController,
+                                        textEditingController:
+                                            HeightTextEditorController,
                                         title: 'Your Height',
                                         hint: '5 feet 6 inch',
-
                                         options: heights,
                                         onChanged: (selectedValue) {
                                           if (selectedValue != null) {
                                             final double heightInFeet =
-                                            parseHeight(heights[selectedValue.first].toString());
+                                                parseHeight(
+                                                    heights[selectedValue.first]
+                                                        .toString());
 
-                                            print("Selected Value is " + heights[selectedValue.first].toString());
+                                            print("Selected Value is " +
+                                                heights[selectedValue.first]
+                                                    .toString());
 
                                             setState(() {
                                               _selectedHeight = heightInFeet;
-                                              _selectedDisplayHeight = heights[selectedValue.first].toString();
+                                              _selectedDisplayHeight =
+                                                  heights[selectedValue.first]
+                                                      .toString();
                                             });
                                           }
                                         },
@@ -303,7 +298,8 @@ class _ApperanceState extends State<Apperance> {
                       },
                     ),
                     Visibility(
-                      visible: WeightTextEditingController.text.toString() == "",
+                      visible:
+                          WeightTextEditingController.text.toString() == "",
                       child: Text(
                         weightError,
                         style: TextStyle(color: Colors.red),
@@ -331,15 +327,20 @@ class _ApperanceState extends State<Apperance> {
                             label: Text(
                               tone,
                               style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.pink, // Text color
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.pink, // Text color
                               ),
                             ),
                             selected: isSelected,
-                            selectedColor: Colors.pink, // Background color when selected
-                            backgroundColor: Colors.white, // Background color when not selected
+                            selectedColor:
+                                Colors.pink, // Background color when selected
+                            backgroundColor: Colors
+                                .white, // Background color when not selected
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(30.0),
-                              side: BorderSide(color: Colors.pink), // Border color
+                              side: BorderSide(
+                                  color: Colors.pink), // Border color
                             ),
                             onSelected: (selected) {
                               setState(() {
@@ -350,7 +351,6 @@ class _ApperanceState extends State<Apperance> {
                         }).toList(),
                       ),
                     ),
-
                     Visibility(
                       visible: _selectedBodyType == "",
                       child: Text(
@@ -380,15 +380,20 @@ class _ApperanceState extends State<Apperance> {
                             label: Text(
                               tone,
                               style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.pink, // Text color
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.pink, // Text color
                               ),
                             ),
                             selected: isSelected,
-                            selectedColor: Colors.pink, // Background color when selected
-                            backgroundColor: Colors.white, // Background color when not selected
+                            selectedColor:
+                                Colors.pink, // Background color when selected
+                            backgroundColor: Colors
+                                .white, // Background color when not selected
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(30.0),
-                              side: BorderSide(color: Colors.pink), // Border color
+                              side: BorderSide(
+                                  color: Colors.pink), // Border color
                             ),
                             onSelected: (selected) {
                               setState(() {
@@ -399,7 +404,6 @@ class _ApperanceState extends State<Apperance> {
                         }).toList(),
                       ),
                     ),
-
                     Visibility(
                       visible: _selectedSkinTone == "",
                       child: Text(
@@ -444,5 +448,4 @@ class _ApperanceState extends State<Apperance> {
       ),
     );
   }
-
 }

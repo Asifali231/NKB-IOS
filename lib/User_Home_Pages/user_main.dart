@@ -14,8 +14,8 @@ import 'package:nikah_blessing/User_Home_Pages/AccountModule/Account_Setting.dar
 import 'package:nikah_blessing/User_Home_Pages/savedProposalModule/SavedProposals.dart';
 import 'package:nikah_blessing/SharedPrefrences/SaveUserDataLocally.dart';
 import 'package:nikah_blessing/User_Home_Pages/ProposalModule/proposalMainController.dart';
+import 'package:nikah_blessing/theme/app_alert.dart';
 import 'package:quickalert/models/quickalert_type.dart';
-import 'package:quickalert/widgets/quickalert_dialog.dart';
 import 'package:stylish_bottom_bar/stylish_bottom_bar.dart';
 import '../Email_Authentication/EmailAuth_Main.dart';
 import '../FirebaseOperation/OnlineStatusService.dart';
@@ -65,7 +65,6 @@ class _UserMainState extends State<UserMain> {
       return;
     }
 
-    await InAppPurchaseService.instance.loadCachedEntitlement();
     unawaited(InAppPurchaseService.instance.refreshEntitlement());
     await _initializeData();
     if (!mounted) return;
@@ -94,7 +93,7 @@ class _UserMainState extends State<UserMain> {
       });
 
       if (data['VerificationStatus'] == 'Rejected') {
-        QuickAlert.show(
+        showAppAlert(
           context: context,
           type: QuickAlertType.error,
           title: 'Unverified Profile',
@@ -129,7 +128,7 @@ class _UserMainState extends State<UserMain> {
     } catch (error, stackTrace) {
       debugPrint('Failed to load user profile: $error\n$stackTrace');
       if (!mounted) return;
-      QuickAlert.show(
+      showAppAlert(
         context: context,
         type: QuickAlertType.error,
         title: 'Unable to load profile',

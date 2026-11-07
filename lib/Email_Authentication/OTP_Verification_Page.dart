@@ -110,7 +110,7 @@
 //   }
 //
 //   Future<void> navigateToMainScreen(BuildContext context) async {
-//     QuickAlert.show(
+//     showAppAlert(
 //       context: context,
 //       type: QuickAlertType.loading,
 //       title: "Loading",
@@ -197,6 +197,7 @@
 import 'package:nikah_blessing/Email_Authentication/terms_acceptance_dialog.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:nikah_blessing/DataClass/UserData.dart';
@@ -205,7 +206,8 @@ import 'package:nikah_blessing/Email_Authentication/generate_otp_and_send_mail.d
 import 'package:nikah_blessing/Make_Profile/Profile_Questionnaire_main.dart';
 import 'package:nikah_blessing/User_Home_Pages/user_main.dart';
 import 'package:pinput/pinput.dart';
-import 'package:quickalert/quickalert.dart';
+import 'package:nikah_blessing/theme/app_alert.dart';
+import 'package:quickalert/models/quickalert_type.dart';
 
 class OTP_Verification_Page extends StatefulWidget {
   final VoidCallback navigateToNextPage, navigateToPrevPage;
@@ -239,70 +241,9 @@ class _OTP_Verification_PageState extends State<OTP_Verification_Page> {
     return hasProfileImages || verificationStatus.isNotEmpty;
   }
 
-  Future<UserCredential?> signInWithEmail(String email, String password) async {
-    if (email.isEmpty || password.isEmpty) {
-      print("❌ Email or password is empty.");
-      return null;
-    }
-
-    debugPrint('Attempting email sign-in for $email');
-
-    try {
-      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
-      );
-
-      if (userCredential.user != null) {
-        await firestoreService.saveUserToFirestore(
-          acceptedTerms: widget.otpService.hasAcceptedTerms,
-          name: "Not Set",
-          email: email.trim(),
-          uid: userCredential.user!.uid,
-        );
-      }
-
-      print("✅ Signed in as: ${userCredential.user?.email}");
-      print("🔑 User ID: ${userCredential.user?.uid}");
-
-      return userCredential;
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found') {
-        try {
-          UserCredential userCredential =
-              await _auth.createUserWithEmailAndPassword(
-            email: email.trim(),
-            password: password,
-          );
-
-          await firestoreService.saveUserToFirestore(
-            acceptedTerms: widget.otpService.hasAcceptedTerms,
-            name: "Not Set",
-            email: email.trim(),
-            uid: userCredential.user!.uid,
-          );
-
-          print(
-              "✅ Account created & signed in as: ${userCredential.user?.email}");
-          print("🔑 User ID: ${userCredential.user?.uid}");
-
-          return userCredential;
-        } on FirebaseAuthException catch (createError) {
-          print('❌ Error creating user: ${createError.message}');
-          return null;
-        }
-      } else if (e.code == 'wrong-password') {
-        print('❌ Wrong password provided for existing user.');
-        return null;
-      } else {
-        print('❌ Sign-in error: ${e.message}');
-        return null;
-      }
-    }
-  }
-
-  navigateToMainScreen(BuildContext context) async {
-    QuickAlert.show(
+  Future<void> navigateToMainScreen(String verificationToken) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    showAppAlert(
       context: context,
       type: QuickAlertType.loading,
       title: "Loading ",
@@ -310,30 +251,30 @@ class _OTP_Verification_PageState extends State<OTP_Verification_Page> {
       barrierDismissible: false,
     );
 
-    final userCredential =
-        await signInWithEmail(UserData.Email, UserData.Email);
-    final user = userCredential?.user ?? FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      if (mounted && Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
-      Fluttertoast.showToast(msg: "Unable to sign in. Please try again.");
-      return;
-    }
-
-    final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
-
     try {
-      final docSnapshot = await docRef.get();
-
-      if (mounted && Navigator.canPop(context)) {
-        Navigator.pop(context);
+      final email = UserData.Email.trim().toLowerCase();
+      final customToken =
+          await widget.otpService.completeEmailSignIn(email, verificationToken);
+      final credential = await _auth.signInWithCustomToken(customToken);
+      final user = credential.user;
+      if (user == null) {
+        throw StateError('Firebase did not return a signed-in user.');
       }
 
+      await firestoreService.saveUserToFirestore(
+        acceptedTerms: widget.otpService.hasAcceptedTerms,
+        name: UserData.Name,
+        email: email,
+        uid: user.uid,
+      );
+      final docSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      if (!mounted) return;
+      if (Navigator.canPop(context)) Navigator.pop(context);
       if (docSnapshot.exists) {
         final data = docSnapshot.data();
-
         if (_hasExistingProfile(data)) {
           Navigator.pushReplacement(
             context,
@@ -347,19 +288,33 @@ class _OTP_Verification_PageState extends State<OTP_Verification_Page> {
           );
         }
       } else {
-        // User document not found
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => Profile_Questionnaire_main()),
         );
       }
-    } catch (e) {
-      if (mounted && Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
-      print('Error fetching user data: $e');
-      Fluttertoast.showToast(msg: 'Error fetching user data');
+    } on FirebaseAuthException catch (error) {
+      debugPrint('Firebase email login error: ${error.code}');
+      _showSignInError(error.message ?? 'Please try again.');
+    } on FirebaseFunctionsException catch (error) {
+      debugPrint('Email OTP sign-in function error: ${error.code}');
+      _showSignInError(
+          error.message ?? 'Please request a new verification code.');
+    } catch (error, stackTrace) {
+      debugPrint('Email sign-in failed: $error\n$stackTrace');
+      _showSignInError('Unable to sign in. Please try again.');
     }
+  }
+
+  void _showSignInError(String message) {
+    if (!mounted) return;
+    if (Navigator.canPop(context)) Navigator.pop(context);
+    showAppAlert(
+      context: context,
+      type: QuickAlertType.error,
+      title: 'Unable to sign in',
+      text: message,
+    );
   }
 
   TextEditingController OTPtextEditingController = new TextEditingController();
@@ -375,6 +330,7 @@ class _OTP_Verification_PageState extends State<OTP_Verification_Page> {
         width: MediaQuery.of(context).size.width,
         alignment: Alignment.center,
         child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -410,14 +366,28 @@ class _OTP_Verification_PageState extends State<OTP_Verification_Page> {
                 margin: EdgeInsets.only(right: 20, left: 20, top: 10),
                 child: ElevatedButton(
                   onPressed: () async {
-                    if (widget.otpService.verifyOtp(_enteredOtp)) {
-                      final accepted = await showTermsAcceptanceDialog(context);
-                      if (!accepted || !mounted) return;
-                      widget.otpService.hasAcceptedTerms = true;
-                      await navigateToMainScreen(context);
-                    } else {
+                    try {
+                      final verificationToken = await widget.otpService
+                          .verifyOtp(UserData.Email, _enteredOtp);
+                      if (!mounted) return;
+                      if (verificationToken != null) {
+                        final accepted =
+                            await showTermsAcceptanceDialog(context);
+                        if (!accepted || !mounted) return;
+                        widget.otpService.hasAcceptedTerms = true;
+                        await navigateToMainScreen(verificationToken);
+                      } else {
+                        Fluttertoast.showToast(
+                          msg: 'The code is incorrect or has expired.',
+                        );
+                      }
+                    } on FirebaseFunctionsException catch (error) {
+                      debugPrint(
+                        'Email OTP verification failed: ${error.code}',
+                      );
                       Fluttertoast.showToast(
-                        msg: 'The code is incorrect or has expired.',
+                        msg: error.message ??
+                            'Unable to verify your code. Please try again.',
                       );
                     }
                   },

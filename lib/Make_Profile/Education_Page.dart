@@ -6,16 +6,20 @@ import 'package:select_searchable_list/select_searchable_list.dart';
 class Education_Page extends StatefulWidget {
   final VoidCallback navigateToNextPage, navigateToPrevPage;
 
-  Education_Page({required this.navigateToNextPage, required this.navigateToPrevPage});
+  Education_Page(
+      {required this.navigateToNextPage, required this.navigateToPrevPage});
 
   @override
   State<Education_Page> createState() => _Education_PageState();
 }
 
 class _Education_PageState extends State<Education_Page> {
-  static TextEditingController LevelTextEditingController = TextEditingController();
-  static TextEditingController FieldTextEditingController = TextEditingController();
-  static TextEditingController DescriptionTextEditingController = TextEditingController();
+  static TextEditingController LevelTextEditingController =
+      TextEditingController();
+  static TextEditingController FieldTextEditingController =
+      TextEditingController();
+  static TextEditingController DescriptionTextEditingController =
+      TextEditingController();
 
   String? SelectedDegree = "";
   String? SelectedField = "";
@@ -378,7 +382,6 @@ class _Education_PageState extends State<Education_Page> {
   }
 
   void validateAndNavigate() {
-
     print("continuing ....");
 
     setState(() {
@@ -387,33 +390,31 @@ class _Education_PageState extends State<Education_Page> {
       descriptionError = "";
     });
 
-      // Validate Degree Level
-      if (SelectedDegree == "") {
-        educationError = 'Please select a degree level';
-        print("Please select a degree level");
-      }
+    // Validate Degree Level
+    if (SelectedDegree == "") {
+      educationError = 'Please select a degree level';
+      print("Please select a degree level");
+    }
 
-      // Validate Field
-      if (SelectedField == "") {
-        fieldError = 'Please select a field of study';
-        print('Please select a field of study');
-      }
+    // Validate Field
+    if (SelectedField == "") {
+      fieldError = 'Please select a field of study';
+      print('Please select a field of study');
+    }
 
-      // Validate Description
-      // No longer required
+    // Validate Description
+    // No longer required
 
-      if (educationError == "" && fieldError == "") {
+    if (educationError == "" && fieldError == "") {
+      UserData.Degree = SelectedDegree!;
+      UserData.Field = SelectedField!;
+      UserData.EducationDiscription =
+          DescriptionTextEditingController.text.toString();
 
-        UserData.Degree = SelectedDegree!;
-        UserData.Field = SelectedField!;
-        UserData.EducationDiscription = DescriptionTextEditingController.text.toString();
-
-        widget.navigateToNextPage();
-      }else
-      {
-        print('Cant save');
-      }
-
+      widget.navigateToNextPage();
+    } else {
+      print('Cant save');
+    }
   }
 
   @override
@@ -425,14 +426,13 @@ class _Education_PageState extends State<Education_Page> {
   Widget build(BuildContext context) {
     return Container(
       margin: EdgeInsets.only(top: 68),
-
       color: Colors.transparent,
-      height: MediaQuery.of(context).size.height,
       width: MediaQuery.of(context).size.width,
       child: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
@@ -492,9 +492,11 @@ class _Education_PageState extends State<Education_Page> {
                                 setState(() {
                                   educationError = "";
                                   int? selectedIndex = selectedValue?.first;
-                                  String? selectedDegree = Degree[selectedIndex] ?? 'Unknown';
+                                  String? selectedDegree =
+                                      Degree[selectedIndex] ?? 'Unknown';
                                   levelOfDegree = getLevelMap(selectedDegree);
-                                  SelectedDegree = selectedDegree; // Update selectedDegree
+                                  SelectedDegree =
+                                      selectedDegree; // Update selectedDegree
                                 });
                               },
                             ),
@@ -525,7 +527,8 @@ class _Education_PageState extends State<Education_Page> {
                                 setState(() {
                                   fieldError = "";
                                   int? selectedIndex = selectedValue?.first;
-                                  SelectedField = levelOfDegree[selectedIndex] ?? 'Unknown';
+                                  SelectedField =
+                                      levelOfDegree[selectedIndex] ?? 'Unknown';
                                 });
                               },
                             ),
@@ -556,7 +559,8 @@ class _Education_PageState extends State<Education_Page> {
                       minLines: 3,
                       controller: DescriptionTextEditingController,
                       decoration: InputDecoration(
-                        hintText: 'I completed my BS-Software in 2024 and I am pursuing Masters in Cybersecurity ...',
+                        hintText:
+                            'I completed my BS-Software in 2024 and I am pursuing Masters in Cybersecurity ...',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10.0),
                           borderSide: BorderSide(color: Colors.grey),
@@ -605,5 +609,4 @@ class _Education_PageState extends State<Education_Page> {
       ),
     );
   }
-
 }

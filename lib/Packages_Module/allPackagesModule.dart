@@ -241,7 +241,12 @@ class PackagesPage extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              final packages = packageSnapshot.data!.docs;
+              final packages = packageSnapshot.data!.docs
+                  .where((package) {
+                    final data = package.data() as Map<String, dynamic>;
+                    return data['isIosSubscription'] != true;
+                  })
+                  .toList();
               final sortedPackages = List.from(packages)
                 ..sort((a, b) {
                   final dataA = a.data() as Map<String, dynamic>;

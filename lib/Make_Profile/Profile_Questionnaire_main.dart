@@ -35,6 +35,9 @@ class _Profile_Questionnaire_mainState
   void initState() {
     super.initState();
     _pageController.addListener(_updateCurrentStep);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) FocusManager.instance.primaryFocus?.unfocus();
+    });
   }
 
   void _updateCurrentStep() {
@@ -47,6 +50,7 @@ class _Profile_Questionnaire_mainState
   }
 
   void navigateToNextPage() {
+    FocusManager.instance.primaryFocus?.unfocus();
     final currentPage = _pageController.page?.round() ?? 0;
     final nextPage = currentPage + 1;
     if (nextPage < _stepCount) {
@@ -59,6 +63,7 @@ class _Profile_Questionnaire_mainState
   }
 
   void navigateToPrevPage() {
+    FocusManager.instance.primaryFocus?.unfocus();
     final currentPage = _pageController.page?.round() ?? 0;
     final previousPage = currentPage - 1;
     if (previousPage >= 0) {

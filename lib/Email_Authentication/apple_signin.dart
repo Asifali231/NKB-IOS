@@ -1,4 +1,9 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:crypto/crypto.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class AppleSignInResult {
   final User user;
@@ -16,71 +21,60 @@ class AppleSignInService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   Future<AppleSignInResult> signInWithApple() async {
-    try {
-      final appleProvider = AppleAuthProvider()
-        ..addScope('email')
-        ..addScope('name');
+    final rawNonce = _generateNonce();
+    final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
 
-      final userCredential = await _auth.signInWithProvider(appleProvider);
-      final user = userCredential.user;
+    final appleCredential = await SignInWithApple.getAppleIDCredential(
+      scopes: [
+        AppleIDAuthorizationScopes.email,
+        AppleIDAuthorizationScopes.fullName,
+      ],
+      nonce: hashedNonce,
+    );
 
-      if (user == null) {
-        throw Exception('Sign in failed: User is null');
-      }
-
-      try {
-        await user.reload();
-      } catch (_) {
-        // Continue with the cached user if a reload is not available yet.
-      }
-
-      final refreshedUser = _auth.currentUser ?? user;
-      final profile =
-          userCredential.additionalUserInfo?.profile as Map<Object?, Object?>?;
-
-      String email = (refreshedUser.email ?? '').trim();
-      if (email.isEmpty) {
-        final profileEmail = profile?['email'];
-        if (profileEmail is String) {
-          email = profileEmail.trim();
-        }
-      }
-
-      String displayName = (refreshedUser.displayName ?? '').trim();
-      if (displayName.isEmpty) {
-        final fullName = profile?['name'];
-        if (fullName is String) {
-          displayName = fullName.trim();
-        }
-      }
-      if (displayName.isEmpty && email.isNotEmpty) {
-        displayName = email.split('@').first;
-      }
-      if (displayName.isEmpty) {
-        displayName = 'User';
-      }
-
-      if (email.isEmpty) {
-        throw Exception(
-          'Could not read email from Apple account. Please use the same Apple ID and try again.',
-        );
-      }
-
-      return AppleSignInResult(
-        user: refreshedUser,
-        email: email,
-        displayName: displayName,
-      );
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'account-exists-with-different-credential') {
-        throw Exception('Account exists with different credential');
-      }
-      if (e.code == 'canceled' || e.code == 'web-context-cancelled') {
-        throw Exception('Apple Sign-In cancelled by user');
-      }
-      throw Exception('Error: ${e.message ?? e.code}');
-    } catch (e) {
-      rethrow;
+    if (appleCredential.identityToken == null) {
+      throw StateError('Apple did not return an identity token.');
     }
+
+    final oauthCredential = OAuthProvider('apple.com').credential(
+      idToken: appleCredential.identityToken,
+      rawNonce: rawNonce,
+      accessToken: appleCredential.authorizationCode,
+    );
+    final userCredential = await _auth.signInWithCredential(oauthCredential);
+    final user = userCredential.user;
+
+    if (user == null) {
+      throw StateError('Firebase did not return a signed-in Apple user.');
+    }
+
+    final providedName = [
+      appleCredential.givenName,
+      appleCredential.familyName,
+    ]
+        .whereType<String>()
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .join(' ');
+
+    return AppleSignInResult(
+      user: user,
+      email: appleCredential.email?.trim().isNotEmpty == true
+          ? appleCredential.email!.trim()
+          : user.email?.trim() ?? '',
+      displayName: providedName.isNotEmpty
+          ? providedName
+          : user.displayName?.trim() ?? '',
+    );
+  }
+
+  String _generateNonce([int length = 32]) {
+    const charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(
+      length,
+      (_) => charset[random.nextInt(charset.length)],
+    ).join();
   }
 }

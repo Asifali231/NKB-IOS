@@ -30,7 +30,8 @@ class _Family_Background_PageState extends State<Family_Background_Page> {
 
   // Text controllers for form inputs
   TextEditingController DisTextEditorController = TextEditingController();
-  TextEditingController EthnicityTextEditingController = TextEditingController();
+  TextEditingController EthnicityTextEditingController =
+      TextEditingController();
   TextEditingController TribeTextEditingController = TextEditingController();
   TextEditingController SectTextEditingController = TextEditingController();
 
@@ -117,7 +118,6 @@ class _Family_Background_PageState extends State<Family_Background_Page> {
     41: "Other",
   };
 
-
   Cast_Dataset cast_dataset = Cast_Dataset();
   String UserName = UserData.Name;
 
@@ -172,6 +172,7 @@ class _Family_Background_PageState extends State<Family_Background_Page> {
           const SizedBox(height: 68),
           Expanded(
             child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
@@ -209,7 +210,7 @@ class _Family_Background_PageState extends State<Family_Background_Page> {
                           ),
                           const TextSpan(
                             text:
-                            "As you know, marriage is not just a union between two individuals, but a beautiful merging of two families into a lasting relationship.",
+                                "As you know, marriage is not just a union between two individuals, but a beautiful merging of two families into a lasting relationship.",
                             style: TextStyle(
                               fontWeight: FontWeight.normal,
                               fontSize: 14,
@@ -301,7 +302,7 @@ class _Family_Background_PageState extends State<Family_Background_Page> {
                           ),
                           const TextSpan(
                             text:
-                            "Do you live in a joint family or a nuclear one? \n",
+                                "Do you live in a joint family or a nuclear one? \n",
                             style: TextStyle(
                               fontWeight: FontWeight.normal,
                               fontSize: 14,
@@ -310,7 +311,7 @@ class _Family_Background_PageState extends State<Family_Background_Page> {
                           ),
                           const TextSpan(
                             text:
-                            "How many members make up your beloved family?",
+                                "How many members make up your beloved family?",
                             style: TextStyle(
                               fontWeight: FontWeight.normal,
                               fontSize: 14,
@@ -330,7 +331,7 @@ class _Family_Background_PageState extends State<Family_Background_Page> {
                       controller: DisTextEditorController,
                       decoration: InputDecoration(
                         hintText:
-                        'I live with my mother and my siblings i.e one brother two sisters .......',
+                            'I live with my mother and my siblings i.e one brother two sisters .......',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10.0),
                         ),

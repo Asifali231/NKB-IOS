@@ -39,6 +39,10 @@ async function sendMail(type, to, data) {
           <p>Please try again or contact support.</p>
         `;
         break;
+      case "email_otp":
+        subject = "Your Nikah Blessing Verification Code";
+        html = `<h2>Dear User,</h2><p>Your verification code is: <b>${data.otp}</b></p><p>This code will expire in 5 minutes.</p>`;
+        break;
       default:
         throw new Error(`Unsupported email type: ${type}`);
     }

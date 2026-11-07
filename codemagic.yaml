@@ -10,6 +10,7 @@ workflows:
         BUNDLE_ID: com.nikahblessing.marriagebeauro.nikahBlessing
         TEAM_ID: 2LJ8H9R266
         APP_STORE_APPLE_ID: 6831444086
+        REVENUECAT_IOS_API_KEY: appl_KOofvEKbcMfFfkWgwMzSpYlCEVd
       flutter: stable
       xcode: latest
       cocoapods: default

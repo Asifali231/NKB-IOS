@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:nikah_blessing/Payement_Module/payment_exception.dart';
 import 'package:nikah_blessing/Payement_Module/payment_status.dart';
@@ -12,8 +13,10 @@ class PaymentService {
 
   // Production URLs
   static const String baseUrl = 'https://easypay.easypaisa.com.pk/easypay';
-  static const String postBackURL = 'https://us-central1-nikahblessingapp-org.cloudfunctions.net/handlePaymentStatus';
-  static const String finalPostBackURL = 'https://us-central1-nikahblessingapp-org.cloudfunctions.net/handleFinalPaymentStatus';
+  static const String postBackURL =
+      'https://us-central1-nikahblessingapp-org.cloudfunctions.net/handlePaymentStatus';
+  static const String finalPostBackURL =
+      'https://us-central1-nikahblessingapp-org.cloudfunctions.net/handleFinalPaymentStatus';
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -26,7 +29,6 @@ class PaymentService {
     String? mobileNum,
   }) async {
     try {
-
       print('Initiating Payment ....');
       print('Initiating Payment ....');
       print('Initiating Payment ....');
@@ -41,9 +43,9 @@ class PaymentService {
         'amount': amount,
         'status': 'INITIATED',
         'fcmToken': fcmToken,
+        'userId': FirebaseAuth.instance.currentUser?.uid,
         'createdAt': FieldValue.serverTimestamp(),
       });
-
 
       print('Data saved ....');
       print('Data saved ....');
@@ -63,36 +65,28 @@ class PaymentService {
             'postBackURL': postBackURL,
             'storeId': storeId,
           }),
-           'autoRedirect': '1',
+          'autoRedirect': '1',
           if (paymentMethod != null) 'paymentMethod': paymentMethod,
           if (emailAddr != null) 'emailAddr': emailAddr,
           if (mobileNum != null) 'mobileNum': mobileNum,
-
         },
       );
 
       print("This is the response : ${response.statusCode}");
 
       if (response.statusCode == 200) {
-
         print("This is the response : ${response.body}");
 
         return jsonDecode(response.body);
-
-
       } else {
-
         print("This is the response body: ${response.body}");
         print("This is the response headers: ${response.headers}");
         print("This is the response redirect: ${response.isRedirect}");
         print("This is the response stcde: ${response.statusCode}");
 
-
-        throw PaymentException('Failed to initiate payment: ${response.statusCode}');
+        throw PaymentException(
+            'Failed to initiate payment: ${response.statusCode}');
       }
-
-
-
     } catch (e) {
       throw PaymentException('Payment initialization error: $e');
     }
@@ -120,7 +114,8 @@ class PaymentService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        throw PaymentException('Failed to confirm payment: ${response.statusCode}');
+        throw PaymentException(
+            'Failed to confirm payment: ${response.statusCode}');
       }
     } catch (e) {
       throw PaymentException('Payment confirmation error: $e');
@@ -136,7 +131,6 @@ class PaymentService {
   }
 
   String generateHash(Map<String, String> params) {
-
     print('Generating Hash .......');
     print('Generating Hash .......');
     print('Generating Hash .......');
@@ -144,12 +138,10 @@ class PaymentService {
     print('with params .... ${params.toString()}');
 
     final sortedParams = Map.fromEntries(
-        params.entries.toList()..sort((a, b) => a.key.compareTo(b.key))
-    );
+        params.entries.toList()..sort((a, b) => a.key.compareTo(b.key)));
 
-    final valueToHash = sortedParams.entries
-        .map((e) => '${e.key}=${e.value}')
-        .join('&');
+    final valueToHash =
+        sortedParams.entries.map((e) => '${e.key}=${e.value}').join('&');
 
     print('Value to hash ....... ${valueToHash.toString()}');
 

@@ -46,7 +46,7 @@ class PaymentVisibilityService {
 
   static Future<bool> arePremiumFeaturesUnlocked() async {
     if (!Platform.isIOS) return arePaymentsHidden();
-    await InAppPurchaseService.instance.loadCachedEntitlement();
+    await InAppPurchaseService.instance.refreshEntitlement();
     return InAppPurchaseService.instance.iosEntitlementActive.value;
   }
 }

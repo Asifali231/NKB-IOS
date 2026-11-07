@@ -6,9 +6,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:nikah_blessing/FirebaseOperation/payment_visibility_service.dart';
+import 'package:nikah_blessing/FirebaseOperation/proposal_feed_settings.dart';
 import 'package:nikah_blessing/Packages_Module/allPackagesModule.dart';
 import 'package:quickalert/models/quickalert_type.dart';
-import 'package:quickalert/widgets/quickalert_dialog.dart';
+import 'package:nikah_blessing/theme/app_alert.dart';
 import '../../DataClass/MyData_Class.dart';
 import '../../Email_Authentication/EmailAuth_Main.dart';
 import '../../Make_Profile/Profile_Questionnaire_main.dart';
@@ -30,6 +31,7 @@ class _ProposalMainControllerState extends State<ProposalMainController>
   List<String> adUrls = [];
   bool isLoading = true;
   bool hasError = false;
+  String? _fallbackNotice;
 
   final ScrollController _scrollController = ScrollController();
   double _headerOpacity = 1.0;
@@ -146,64 +148,185 @@ class _ProposalMainControllerState extends State<ProposalMainController>
     return fallback;
   }
 
+  Future<int> _dailyProfilesLimit(bool premiumFeaturesUnlocked) async {
+    final userDailyProfiles =
+        _safeInt(userData['DailyProfiles'], fallback: 5).clamp(0, 500);
+    if (!premiumFeaturesUnlocked) return userDailyProfiles;
+
+    final iosSubscription = userData['iosSubscription'];
+    if (iosSubscription is! Map ||
+        iosSubscription['source'] != 'revenuecat') {
+      return _unlockedDailyProfilesLimit;
+    }
+
+    final productId = iosSubscription['productId']?.toString().trim() ?? '';
+    if (productId.isEmpty) {
+      throw StateError('The active iOS package has no product ID.');
+    }
+
+    final packageSnapshot = await _firestore
+        .collection('packages')
+        .where('ios_product_id', isEqualTo: productId)
+        .limit(2)
+        .get();
+    if (packageSnapshot.docs.length != 1) {
+      throw StateError('The active iOS package is not configured in Firestore.');
+    }
+
+    final dailyProfiles = _safeInt(
+      packageSnapshot.docs.single.data()['DailyProfiles'],
+      fallback: -1,
+    );
+    if (dailyProfiles < 0) {
+      throw StateError('The active iOS package has an invalid profile limit.');
+    }
+    return dailyProfiles.clamp(0, 10000);
+  }
+
   String _normalizeString(dynamic value) {
     return value?.toString().trim().toLowerCase() ?? '';
   }
 
-  bool _matchesUserFilters(
+  bool _isCloseTextMatch(String selectedValue, String candidateValue) {
+    if (selectedValue == candidateValue) return true;
+
+    final selectedWords = selectedValue
+        .split(RegExp(r'[^a-z0-9]+'))
+        .where((word) => word.isNotEmpty)
+        .toSet();
+    final candidateWords = candidateValue
+        .split(RegExp(r'[^a-z0-9]+'))
+        .where((word) => word.isNotEmpty)
+        .toSet();
+    final sharedWords = selectedWords.intersection(candidateWords).length;
+    final shorterValueLength = min(selectedWords.length, candidateWords.length);
+    return shorterValueLength > 0 && sharedWords * 2 >= shorterValueLength;
+  }
+
+  int _proposalMatchTier(
     Map<String, dynamic> candidateData,
     Set<String> selectedCountries,
     Set<String> selectedMartialStatuses,
     String selectedSect,
     int minAge,
     int maxAge,
+    bool ageFilterEnabled,
     String currentUserGender,
     String currentUserId,
     Set<String> blockedUserIds,
+    Map<String, dynamic> currentUserData,
+    bool prioritizeExactMatches,
   ) {
     final candidateUserId = candidateData['uid']?.toString() ?? '';
     if (candidateUserId.isEmpty || candidateUserId == currentUserId) {
-      return false;
+      return -1;
     }
 
     if (blockedUserIds.contains(candidateUserId)) {
-      return false;
+      return -1;
     }
 
     final candidateGender = _normalizeString(candidateData['Gender']);
     if (candidateGender.isEmpty || candidateGender == currentUserGender) {
-      return false;
+      return -1;
     }
+    if (!prioritizeExactMatches) return 0;
 
-    final candidateAge = _safeInt(candidateData['Age'], fallback: -1);
-    if (candidateAge < minAge || candidateAge > maxAge) {
-      return false;
-    }
+    var activeFilters = 0;
+    var exactMatches = 0;
+    var relaxedMatches = 0;
+    var countryMatches = false;
 
     if (selectedCountries.isNotEmpty) {
-      final candidateCountry =
-          _normalizeString(candidateData['NationalityCountry']);
-      if (!selectedCountries.contains(candidateCountry)) {
-        return false;
+      activeFilters++;
+      final candidateCountry = _normalizeString(
+        candidateData['NationalityCountry'] ?? candidateData['JobCountry'],
+      );
+      countryMatches = selectedCountries.contains(candidateCountry);
+      if (countryMatches) exactMatches++;
+    }
+
+    if (ageFilterEnabled) {
+      activeFilters++;
+      final candidateAge = _safeInt(candidateData['Age'], fallback: -1);
+      if (candidateAge >= minAge && candidateAge <= maxAge) {
+        exactMatches++;
+      } else if (candidateAge >= minAge - 5 && candidateAge <= maxAge + 5) {
+        relaxedMatches++;
       }
     }
 
     if (selectedSect.isNotEmpty) {
-      final candidateSect = _normalizeString(candidateData['Sect']);
-      if (candidateSect != selectedSect) {
-        return false;
+      activeFilters++;
+      if (_normalizeString(candidateData['Sect']) == selectedSect) {
+        exactMatches++;
       }
     }
 
     if (selectedMartialStatuses.isNotEmpty) {
-      final candidateMartialStatus =
-          _normalizeString(candidateData['MartialStatus']);
-      if (!selectedMartialStatuses.contains(candidateMartialStatus)) {
-        return false;
+      activeFilters++;
+      if (selectedMartialStatuses
+          .contains(_normalizeString(candidateData['MartialStatus']))) {
+        exactMatches++;
       }
     }
 
-    return true;
+    final selectedCity = _normalizeString(
+      currentUserData['PartnerCity '] ??
+          currentUserData['PartnerLocation '] ??
+          currentUserData['PartnerCity'] ??
+          currentUserData['PartnerLocation'],
+    );
+    final selectedLocationCountry = _normalizeString(
+      currentUserData['PartnerLocationCountry'],
+    );
+    if (selectedCity.isNotEmpty) {
+      activeFilters++;
+      final candidateCity = _normalizeString(
+        candidateData['City'] ??
+            candidateData['JobCity'] ??
+            candidateData['Location'],
+      );
+      if (candidateCity == selectedCity) {
+        exactMatches++;
+      } else if (countryMatches ||
+          selectedCountries.contains(_normalizeString(
+            candidateData['NationalityCountry'] ?? candidateData['JobCountry'],
+          )) ||
+          (selectedLocationCountry.isNotEmpty &&
+              selectedLocationCountry ==
+                  _normalizeString(candidateData['NationalityCountry'] ??
+                      candidateData['JobCountry']))) {
+        relaxedMatches++;
+      }
+    }
+
+    for (final filter in const [
+      ('PartnerEducation ', ['Education', 'Degree']),
+      ('PartnerProfession ', ['Profession']),
+    ]) {
+      final selectedValue = _normalizeString(
+        currentUserData[filter.$1] ?? currentUserData[filter.$1.trim()],
+      );
+      if (selectedValue.isEmpty) continue;
+
+      activeFilters++;
+      final candidateValue = filter.$2
+          .map((key) => _normalizeString(candidateData[key]))
+          .firstWhere((value) => value.isNotEmpty, orElse: () => '');
+      if (candidateValue == selectedValue) {
+        exactMatches++;
+      } else if (_isCloseTextMatch(selectedValue, candidateValue)) {
+        relaxedMatches++;
+      }
+    }
+
+    if (activeFilters == 0 || exactMatches == activeFilters) return 0;
+    if (selectedCountries.isNotEmpty && countryMatches) return 1;
+    if (exactMatches > 0 || relaxedMatches > 0) {
+      return selectedCountries.isNotEmpty ? 2 : 1;
+    }
+    return selectedCountries.isNotEmpty ? 3 : 2;
   }
 
   Future<List<DocumentSnapshot>> _fetchFilteredCandidates({
@@ -213,14 +336,17 @@ class _ProposalMainControllerState extends State<ProposalMainController>
     required String selectedSect,
     required int minAge,
     required int maxAge,
+    required bool ageFilterEnabled,
     required String currentUserGender,
     required String currentUserId,
     required Set<String> blockedUserIds,
+    required Map<String, dynamic> currentUserData,
+    required bool prioritizeExactMatches,
   }) async {
     const int pageSize = 200;
     const int maxScannedDocuments = 2000;
 
-    final List<DocumentSnapshot> matchedProfiles = [];
+    final buckets = List.generate(4, (_) => <DocumentSnapshot>[]);
     DocumentSnapshot? lastDoc;
     int scannedDocuments = 0;
 
@@ -242,33 +368,38 @@ class _ProposalMainControllerState extends State<ProposalMainController>
 
       for (final doc in snapshot.docs) {
         scannedDocuments++;
-        if (_matchesUserFilters(
+        final tier = _proposalMatchTier(
           doc.data(),
           selectedCountries,
           selectedMartialStatuses,
           selectedSect,
           minAge,
           maxAge,
+          ageFilterEnabled,
           currentUserGender,
           currentUserId,
           blockedUserIds,
-        )) {
-          matchedProfiles.add(doc);
-        }
+          currentUserData,
+          prioritizeExactMatches,
+        );
+        if (tier >= 0) buckets[tier].add(doc);
       }
 
       lastDoc = snapshot.docs.last;
 
       final reachedEnd = snapshot.docs.length < pageSize;
-      final hasEnoughForRandomPool =
-          matchedProfiles.length >= (desiredDailyProfiles * 3);
+      final hasEnoughExactMatches =
+          buckets.first.length >= (desiredDailyProfiles * 3);
 
-      if (reachedEnd || hasEnoughForRandomPool) {
+      if (reachedEnd || hasEnoughExactMatches) {
         break;
       }
     }
 
-    return matchedProfiles;
+    for (final bucket in buckets) {
+      bucket.shuffle(Random());
+    }
+    return buckets.expand((bucket) => bucket).toList();
   }
 
   Future<void> getUserData() async {
@@ -291,7 +422,7 @@ class _ProposalMainControllerState extends State<ProposalMainController>
       });
 
       if (userData["VerificationStatus"] == "Rejected") {
-        QuickAlert.show(
+        showAppAlert(
             context: context,
             type: QuickAlertType.error,
             title: "Unverified Profile",
@@ -331,6 +462,7 @@ class _ProposalMainControllerState extends State<ProposalMainController>
       if (userData == null) {
         setState(() {
           proposals = [];
+          _fallbackNotice = null;
           isLoading = false;
         });
         return;
@@ -338,12 +470,12 @@ class _ProposalMainControllerState extends State<ProposalMainController>
 
       final premiumFeaturesUnlocked =
           await PaymentVisibilityService.arePremiumFeaturesUnlocked();
-      final int dailyProfilesLimit = premiumFeaturesUnlocked
-          ? _unlockedDailyProfilesLimit
-          : _safeInt(userData["DailyProfiles"], fallback: 5).clamp(0, 500);
+      final int dailyProfilesLimit =
+          await _dailyProfilesLimit(premiumFeaturesUnlocked);
       if (dailyProfilesLimit <= 0) {
         setState(() {
           proposals = [];
+          _fallbackNotice = null;
           isLoading = false;
           hasError = false;
         });
@@ -365,12 +497,26 @@ class _ProposalMainControllerState extends State<ProposalMainController>
       final rawMaxAge = _safeInt(userData['PartnerMaxAge '], fallback: 99);
       final minAge = min(rawMinAge, rawMaxAge);
       final maxAge = max(rawMinAge, rawMaxAge);
+      final ageFilterEnabled = minAge > 18 || maxAge < 99;
       final currentUserGender = _normalizeString(userData['Gender']);
       final currentUserId = userData['uid']?.toString() ?? '';
       final blockedUserIds = ((userData['blockUsers'] as List?) ?? const [])
           .map((item) => item.toString())
           .where((value) => value.isNotEmpty)
           .toSet();
+      var feedSettings = const ProposalFeedSettings();
+      try {
+        feedSettings = await ProposalFeedSettings.load(_firestore);
+      } catch (error, stackTrace) {
+        debugPrint('Unable to load proposal feed settings: $error');
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stackTrace,
+            library: 'Proposal feed settings',
+          ),
+        );
+      }
 
       final matchedProfiles = await _fetchFilteredCandidates(
         desiredDailyProfiles: dailyProfilesLimit,
@@ -379,18 +525,27 @@ class _ProposalMainControllerState extends State<ProposalMainController>
         selectedSect: selectedSect,
         minAge: minAge,
         maxAge: maxAge,
+        ageFilterEnabled: ageFilterEnabled,
         currentUserGender: currentUserGender,
         currentUserId: currentUserId,
         blockedUserIds: blockedUserIds,
+        currentUserData: userData,
+        prioritizeExactMatches: feedSettings.prioritizeExactMatches,
       );
 
-      final randomizedProfiles = List<DocumentSnapshot>.from(matchedProfiles)
-        ..shuffle(Random());
+      final countryMatches = matchedProfiles.any((profile) => selectedCountries
+          .contains(_normalizeString(
+              (profile.data() as Map<String, dynamic>)['NationalityCountry'])));
       final filteredProposals =
-          randomizedProfiles.take(dailyProfilesLimit).toList();
+          matchedProfiles.take(dailyProfilesLimit).toList();
 
       setState(() {
         proposals = filteredProposals;
+        _fallbackNotice = feedSettings.showFallbackNotice &&
+                selectedCountries.isNotEmpty &&
+                !countryMatches
+            ? feedSettings.bannerText.trim()
+            : null;
         isLoading = false;
         hasError = false;
       });
@@ -400,6 +555,7 @@ class _ProposalMainControllerState extends State<ProposalMainController>
       setState(() {
         hasError = true;
         isLoading = false;
+        _fallbackNotice = null;
       });
       Fluttertoast.showToast(msg: "Error fetching proposals");
     }
@@ -1060,6 +1216,19 @@ class _ProposalMainControllerState extends State<ProposalMainController>
           controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
+            if (_fallbackNotice?.isNotEmpty == true)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Text(
+                    _fallbackNotice!,
+                    style: const TextStyle(
+                      color: Color(0xFF636E72),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
             SliverToBoxAdapter(
               child: Column(
                 children: [

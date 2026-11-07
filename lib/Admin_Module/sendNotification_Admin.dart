@@ -160,7 +160,22 @@ class _AdminNotificationPageState extends State<AdminNotificationPage>
         'Bulk notification summary - matched: $matchedUsers, tokens: $usersWithTokens, success: $successCount, failed: $failureCount',
       );
 
-      _showCustomSnackBar('Notifications sent successfully! 🎉', Colors.green);
+      if (usersWithTokens == 0) {
+        _showCustomSnackBar(
+          'No matching users have notifications enabled on a device.',
+          Colors.orange,
+        );
+      } else if (failureCount > 0) {
+        _showCustomSnackBar(
+          'Sent to $successCount devices; $failureCount deliveries failed.',
+          Colors.orange,
+        );
+      } else {
+        _showCustomSnackBar(
+          'Notification sent to $successCount devices.',
+          Colors.green,
+        );
+      }
 
       _titleController.clear();
       _bodyController.clear();

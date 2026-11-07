@@ -58,7 +58,6 @@ class _Orgin_Country_PageState extends State<Orgin_Country_Page> {
           RadioError.isEmpty &&
           CurrentError.isEmpty &&
           DiscriptionError.isEmpty) {
-
         UserData.NationalityCountry = countryValue;
         UserData.NationalityState = stateValue;
         UserData.NationalityCity = cityValue;
@@ -131,13 +130,13 @@ class _Orgin_Country_PageState extends State<Orgin_Country_Page> {
       backgroundColor: Colors.transparent,
       body: Container(
         margin: EdgeInsets.only(top: 68),
-
-        height: MediaQuery.of(context).size.height,
         width: MediaQuery.of(context).size.width,
         child: Column(
           children: [
             Expanded(
               child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
@@ -179,7 +178,8 @@ class _Orgin_Country_PageState extends State<Orgin_Country_Page> {
                       SizedBox(height: 20),
                       Text(
                         "Please Select Your Country of Nationality",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       CSCPicker(
                         layout: Layout.vertical,
@@ -197,7 +197,8 @@ class _Orgin_Country_PageState extends State<Orgin_Country_Page> {
                       SizedBox(height: 10),
                       Text(
                         "Do you currently reside in the same country?",
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                       Row(
                         children: [
@@ -261,7 +262,7 @@ class _Orgin_Country_PageState extends State<Orgin_Country_Page> {
                         controller: AddressController,
                         decoration: InputDecoration(
                           hintText:
-                          'I was born in Pakistan and moved to the UK when I was 12 years old...',
+                              'I was born in Pakistan and moved to the UK when I was 12 years old...',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10.0),
                             borderSide: BorderSide(color: Colors.grey),
@@ -292,7 +293,6 @@ class _Orgin_Country_PageState extends State<Orgin_Country_Page> {
               color: Colors.transparent,
               padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: ElevatedButton(
-
                 onPressed: validateAndProceed,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.pink,
@@ -303,7 +303,10 @@ class _Orgin_Country_PageState extends State<Orgin_Country_Page> {
                 ),
                 child: Text(
                   'Continue',
-                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -312,5 +315,4 @@ class _Orgin_Country_PageState extends State<Orgin_Country_Page> {
       ),
     );
   }
-
 }

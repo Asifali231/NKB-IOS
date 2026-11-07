@@ -5,7 +5,8 @@ import 'package:nikah_blessing/DataClass/UserData.dart';
 class Personality_Chips_Page extends StatefulWidget {
   final VoidCallback navigateToNextPage, navigateToPrevPage;
 
-  Personality_Chips_Page({required this.navigateToNextPage, required this.navigateToPrevPage});
+  Personality_Chips_Page(
+      {required this.navigateToNextPage, required this.navigateToPrevPage});
 
   @override
   State<Personality_Chips_Page> createState() => _Personality_Chips_PageState();
@@ -160,6 +161,7 @@ class _Personality_Chips_PageState extends State<Personality_Chips_Page> {
       height: MediaQuery.of(context).size.height,
       width: MediaQuery.of(context).size.width,
       child: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,

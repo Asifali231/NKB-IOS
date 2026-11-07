@@ -162,7 +162,10 @@ class _lifePartnerExceptationState extends State<lifePartnerExceptation> {
     UserData.partnerMartialStatus = List<String>.from(_selectedMartialStatuses);
 
     final saveDataToDatabase = saveProposalToFireStore();
-    await saveDataToDatabase.uploadUserData(context);
+    await saveDataToDatabase.uploadUserData(
+      context,
+      acceptedTerms: _isTermsAccepted,
+    );
   }
 
   @override
@@ -172,6 +175,7 @@ class _lifePartnerExceptationState extends State<lifePartnerExceptation> {
       height: MediaQuery.of(context).size.height,
       width: MediaQuery.of(context).size.width,
       child: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
@@ -406,6 +410,7 @@ class _lifePartnerExceptationState extends State<lifePartnerExceptation> {
                             ),
                             recognizer: TapGestureRecognizer()
                               ..onTap = () {
+                                FocusManager.instance.primaryFocus?.unfocus();
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -427,6 +432,7 @@ class _lifePartnerExceptationState extends State<lifePartnerExceptation> {
                             ),
                             recognizer: TapGestureRecognizer()
                               ..onTap = () {
+                                FocusManager.instance.primaryFocus?.unfocus();
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(

@@ -155,6 +155,7 @@ class _Documentation_VerificationState
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Padding(
           padding: const EdgeInsets.only(right: 20, left: 20, top: 20),
           child: Column(

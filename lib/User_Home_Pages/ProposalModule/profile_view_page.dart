@@ -14,9 +14,10 @@ import 'package:nikah_blessing/FirebaseOperation/report_user_dialog.dart';
 import 'package:nikah_blessing/Chat_Module/free_chat_message_service.dart';
 import 'package:nikah_blessing/Chat_Module/premium_messaging_dialog.dart';
 import 'package:nikah_blessing/Packages_Module/allPackagesModule.dart';
-import 'package:nikah_blessing/theme/app_brand_colors.dart';
+import 'package:nikah_blessing/theme/app_alert.dart';
+import 'package:nikah_blessing/theme/app_colors.dart';
 import 'package:nikah_blessing/User_Home_Pages/user_main.dart';
-import 'package:quickalert/quickalert.dart';
+import 'package:quickalert/models/quickalert_type.dart';
 import 'package:vibration/vibration.dart';
 import '../../Chat_Module/Chat_Screen.dart';
 
@@ -371,7 +372,7 @@ class _profile_view_pageState extends State<profile_view_page>
     User? user = auth.currentUser;
 
     if (user == null) {
-      QuickAlert.show(
+      showAppAlert(
         context: context,
         type: QuickAlertType.error,
         title: "Network Error",
@@ -395,7 +396,7 @@ class _profile_view_pageState extends State<profile_view_page>
         isVerified = userData?["VerificationStatus"] == "Verified";
       });
     } else {
-      QuickAlert.show(
+      showAppAlert(
         context: context,
         type: QuickAlertType.error,
         title: "Network Error",
@@ -546,7 +547,7 @@ class _profile_view_pageState extends State<profile_view_page>
           content: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              gradient: AppBrandColors.brandGradient,
+              gradient: kBrandGradient,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(

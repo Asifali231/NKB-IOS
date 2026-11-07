@@ -4,7 +4,8 @@ import '../DataClass/UserData.dart';
 class MartialStatusPage extends StatefulWidget {
   final VoidCallback navigateToNextPage, navigateToPrevPage;
 
-  MartialStatusPage({required this.navigateToNextPage, required this.navigateToPrevPage});
+  MartialStatusPage(
+      {required this.navigateToNextPage, required this.navigateToPrevPage});
 
   @override
   State<MartialStatusPage> createState() => _MartialStatusPageState();
@@ -54,7 +55,9 @@ class _MartialStatusPageState extends State<MartialStatusPage> {
     }
 
     // Only validate number of children if user has children
-    if (selectedMaritalStatus != "Single" && hasChildren == 'true' && howManyChildren.isEmpty) {
+    if (selectedMaritalStatus != "Single" &&
+        hasChildren == 'true' &&
+        howManyChildren.isEmpty) {
       howManyChildrenError = "Please enter how many children you have";
     }
 
@@ -62,7 +65,8 @@ class _MartialStatusPageState extends State<MartialStatusPage> {
     UserData.MartialStatus = selectedMaritalStatus;
     UserData.HasChilderen = hasChildren;
     UserData.liveWithYou = livingWithChildren;
-    UserData.NoOfChilderens = int.tryParse(numberOfChildrenController.text) ?? 0;
+    UserData.NoOfChilderens =
+        int.tryParse(numberOfChildrenController.text) ?? 0;
     UserData.ShareMaritalInfoWith = _sharewith;
 
     // Navigate to the next page if all validations pass
@@ -77,13 +81,13 @@ class _MartialStatusPageState extends State<MartialStatusPage> {
       backgroundColor: Colors.transparent,
       body: Container(
         margin: EdgeInsets.only(top: 68),
-
-        height: MediaQuery.of(context).size.height,
         width: MediaQuery.of(context).size.width,
         child: Column(
           children: [
             Expanded(
               child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
@@ -108,7 +112,8 @@ class _MartialStatusPageState extends State<MartialStatusPage> {
                               ),
                             ),
                             TextSpan(
-                              text: "It's good to be honest at the start of a relationship.",
+                              text:
+                                  "It's good to be honest at the start of a relationship.",
                               style: TextStyle(
                                 fontWeight: FontWeight.normal,
                                 fontSize: 14,
@@ -154,7 +159,8 @@ class _MartialStatusPageState extends State<MartialStatusPage> {
                       if (selectedMaritalStatus != "Single") ...[
                         Text(
                           "Do you have children from your first marriage?",
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14),
                         ),
                         Row(
                           children: [
@@ -163,7 +169,8 @@ class _MartialStatusPageState extends State<MartialStatusPage> {
                                 title: Text('Yes'),
                                 value: 'true',
                                 groupValue: hasChildren,
-                                onChanged: (value) => setState(() => hasChildren = value!),
+                                onChanged: (value) =>
+                                    setState(() => hasChildren = value!),
                               ),
                             ),
                             Expanded(
@@ -171,20 +178,23 @@ class _MartialStatusPageState extends State<MartialStatusPage> {
                                 title: Text("No"),
                                 value: 'false',
                                 groupValue: hasChildren,
-                                onChanged: (value) => setState(() => hasChildren = value!),
+                                onChanged: (value) =>
+                                    setState(() => hasChildren = value!),
                               ),
                             ),
                           ],
                         ),
                         if (hasChildrenError.isNotEmpty)
-                          Text(hasChildrenError, style: TextStyle(color: Colors.red)),
+                          Text(hasChildrenError,
+                              style: TextStyle(color: Colors.red)),
                       ],
 
                       // Do your children live with you?
                       if (hasChildren == 'true') ...[
                         Text(
                           "Do your children live with you?",
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14),
                         ),
                         Row(
                           children: [
@@ -193,7 +203,8 @@ class _MartialStatusPageState extends State<MartialStatusPage> {
                                 title: Text('Yes'),
                                 value: 'true',
                                 groupValue: livingWithChildren,
-                                onChanged: (value) => setState(() => livingWithChildren = value!),
+                                onChanged: (value) =>
+                                    setState(() => livingWithChildren = value!),
                               ),
                             ),
                             Expanded(
@@ -201,7 +212,8 @@ class _MartialStatusPageState extends State<MartialStatusPage> {
                                 title: Text("No"),
                                 value: 'false',
                                 groupValue: livingWithChildren,
-                                onChanged: (value) => setState(() => livingWithChildren = value!),
+                                onChanged: (value) =>
+                                    setState(() => livingWithChildren = value!),
                               ),
                             ),
                           ],
@@ -211,7 +223,8 @@ class _MartialStatusPageState extends State<MartialStatusPage> {
                       // How many children do you have?
                       if (hasChildren == 'true') ...[
                         Text("How many children do you have?",
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 14)),
                         SizedBox(height: 10),
                         TextField(
                           controller: numberOfChildrenController,
@@ -220,16 +233,19 @@ class _MartialStatusPageState extends State<MartialStatusPage> {
                             labelText: 'Enter number of children',
                             border: OutlineInputBorder(),
                           ),
-                          onChanged: (value) => setState(() => howManyChildren = value),
+                          onChanged: (value) =>
+                              setState(() => howManyChildren = value),
                         ),
                         if (howManyChildrenError.isNotEmpty)
-                          Text(howManyChildrenError, style: TextStyle(color: Colors.red)),
+                          Text(howManyChildrenError,
+                              style: TextStyle(color: Colors.red)),
                       ],
 
                       SizedBox(height: 10),
                       Text(
                         "Share this info with",
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 18),
                       ),
                       Column(
                         children: [

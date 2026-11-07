@@ -1,8 +1,22 @@
-# 🔥 Firebase Packages Structure - Physical Services
+# 🔥 Firebase Packages Structure
 
-## 📋 Overview
+## iOS App Store subscriptions
 
-Your app now treats packages as **physical services** (like consultation calls, premium support) rather than digital subscriptions. This complies with Google Play Store policies for third-party payment gateways like JazzCash.
+The iOS paywall uses Firestore for package display names, daily profile limits, durations, and product mapping. Prices are fetched from the matching RevenueCat offering and are not stored in Firestore.
+
+| Firestore document ID | Display name (`name`) | RevenueCat package (`revenuecat_package_id`) | App Store product (`ios_product_id`) | Daily profiles | Duration (`days`) |
+|---|---|---|---|---:|---|
+| `Noor Package` | `Noor Package` | `$rc_monthly` | `Nikahblessing_1month` | 50 | 30 |
+| `Yearly Package` | `Rehmat Package` | `$rc_annual` | `Nikahblessing_1yearly` | 200 | 365 |
+| `Qismat Pro` | `Qismat Pro` | `$rc_lifetime` | `Nikahblessing_lifetime` | 2010 | `LIFETIME` |
+
+Each iOS document must include `isActive: true`, `ChatCredit: 0`, and optionally `description`. `isIosSubscription` may be present but is not required for iOS display or subscription synchronization. At runtime, the app reads `ios_product_id` from Firestore and matches it against `storeProduct.identifier` in RevenueCat's `default` offering. Documents with an empty `ios_product_id` are skipped. The RevenueCat package ID is logged for diagnostics but does not control product matching. These IDs are not hardcoded in the app. If product IDs change, update Firestore to match the App Store product. Do not add a `price` field for these documents. Set prices in App Store Connect; the app displays the localized RevenueCat price.
+
+To create or replace these three Firestore documents, configure the Firebase app in `firebase_packages_upload.html` and run its upload action. Existing package collections are not automatically migrated by the admin panel. iOS subscription documents are excluded from the non-iOS package list.
+
+## Other package documents
+
+The remaining examples in this document describe non-iOS service packages, including physical services purchased through the existing payment flow.
 
 ## 🗂️ Firebase Collection Structure
 
@@ -12,7 +26,7 @@ Each document represents a service package that users can purchase.
 
 ---
 
-## 📦 Package Document Structure
+## 📦 Non-iOS Package Document Structure
 
 ### **Free Package**
 ```json
@@ -80,7 +94,7 @@ Each document represents a service package that users can purchase.
 
 ---
 
-## 🔧 Required Fields for All Packages
+## 🔧 Required Fields for Non-iOS Packages
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -194,7 +208,7 @@ After adding packages to Firebase:
 
 ## 🚨 Important Notes
 
-1. **Prices in PKR**: All prices must be in Pakistani Rupees
+1. **Prices in PKR**: Non-iOS service prices must be in Pakistani Rupees. iOS prices come from RevenueCat.
 2. **Service Delivery**: Ensure you can actually deliver the promised services
 3. **Customer Support**: Provide clear contact information for service inquiries
 4. **Refund Policy**: Update terms to reflect physical service purchases

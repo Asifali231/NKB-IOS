@@ -5,8 +5,62 @@ import '../DataClass/UserData.dart';
 class FirestoreService {
   String? _userDeviceToken;
 
-  FirestoreService() {
-    _getDeviceToken();
+  Future<bool> createUserIfAbsent({
+    required String? name,
+    required String? email,
+    required String uid,
+    required bool acceptedTerms,
+  }) async {
+    final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+    if ((await userRef.get()).exists) return false;
+
+    await _getDeviceToken();
+
+    final suppliedName = name?.trim();
+    final savedName =
+        suppliedName == null || suppliedName.isEmpty ? 'User' : suppliedName;
+    final savedEmail = email?.trim() ?? '';
+    final deviceToken = _userDeviceToken;
+    final termsData = acceptedTerms
+        ? {
+            'termsAccepted': true,
+            'termsAcceptedAt': FieldValue.serverTimestamp(),
+            'termsVersion': '1.0',
+          }
+        : <String, dynamic>{};
+
+    final created = await FirebaseFirestore.instance.runTransaction<bool>(
+      (transaction) async {
+        final snapshot = await transaction.get(userRef);
+        if (snapshot.exists) return false;
+
+        transaction.set(userRef, {
+          'name': savedName,
+          'email': savedEmail,
+          'uid': uid,
+          if (deviceToken != null && deviceToken.isNotEmpty) ...{
+            'fcmToken': deviceToken,
+            'userDeviceToken': deviceToken,
+          },
+          'createdAt': FieldValue.serverTimestamp(),
+          'friends': [],
+          'friendsRequests': [],
+          'blockUsers': [],
+          'savedProposal': [],
+          ...termsData,
+        });
+        return true;
+      },
+    );
+
+    if (created) {
+      UserData.Name = savedName;
+      UserData.Email = savedEmail;
+      UserData.userID = uid;
+      UserData.userDeviceToken = deviceToken ?? '';
+    }
+
+    return created;
   }
 
   // Get the device token from Firebase Messaging
@@ -21,11 +75,13 @@ class FirestoreService {
         sound: true,
       );
 
-      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional) {
         // Retrieve the device token
         String? token = await messaging.getToken();
         _userDeviceToken = token;
-        print('Device token: $_userDeviceToken');
+        print(
+            'Push notification token ${token == null ? 'unavailable' : 'registered'}.');
       } else {
         print('User declined or has not accepted notification permissions');
       }
@@ -41,16 +97,12 @@ class FirestoreService {
     required String uid,
     required bool acceptedTerms,
   }) async {
-    if (!acceptedTerms) {
-      throw StateError('Accept the Terms of Use before continuing.');
-    }
-
     await _getDeviceToken();
 
-    final String deviceToken = _userDeviceToken ?? '';
-    if (_userDeviceToken == null) {
+    final String? deviceToken = _userDeviceToken;
+    if (deviceToken == null || deviceToken.isEmpty) {
       print(
-          'Warning: Device token not available; saving user without FCM token');
+          'Warning: Device token not available; preserving any existing FCM token');
     }
 
     try {
@@ -59,17 +111,29 @@ class FirestoreService {
 
       // Check if user already exists
       DocumentSnapshot docSnapshot = await users.doc(uid).get();
+      final termsData = acceptedTerms
+          ? {
+              'termsAccepted': true,
+              'termsAcceptedAt': FieldValue.serverTimestamp(),
+              'termsVersion': '1.0',
+            }
+          : <String, dynamic>{};
 
       if (docSnapshot.exists) {
+        final existingName =
+            (docSnapshot.data() as Map<String, dynamic>?)?['name']?.toString();
+        final savedName = name.trim().isEmpty || name.trim() == 'Not Set'
+            ? (existingName?.trim().isNotEmpty == true ? existingName : name)
+            : name;
         // If user already exists, update the record
         await users.doc(uid).update({
-          'name': name,
+          'name': savedName,
           'email': email,
-          'fcmToken': deviceToken,
-          'userDeviceToken': deviceToken,
-          'termsAccepted': true,
-          'termsAcceptedAt': FieldValue.serverTimestamp(),
-          'termsVersion': '1.0',
+          if (deviceToken != null && deviceToken.isNotEmpty) ...{
+            'fcmToken': deviceToken,
+            'userDeviceToken': deviceToken,
+          },
+          ...termsData,
           'updatedAt': FieldValue.serverTimestamp(), // Timestamp of last update
         });
         print('User data updated successfully.');
@@ -79,17 +143,17 @@ class FirestoreService {
           'name': name,
           'email': email,
           'uid': uid,
-          'fcmToken': deviceToken,
-          'userDeviceToken': deviceToken,
+          if (deviceToken != null && deviceToken.isNotEmpty) ...{
+            'fcmToken': deviceToken,
+            'userDeviceToken': deviceToken,
+          },
           'createdAt':
               FieldValue.serverTimestamp(), // Timestamp of record creation
           'friends': [], // Timestamp of record creation
           'friendsRequests': [], // Timestamp of record creation
           'blockUsers': [], // Timestamp of record creation
           'savedProposal': [], // Timestamp of record creation
-          'termsAccepted': true,
-          'termsAcceptedAt': FieldValue.serverTimestamp(),
-          'termsVersion': '1.0',
+          ...termsData,
         });
         print('User data added successfully.');
       }
@@ -98,7 +162,7 @@ class FirestoreService {
       UserData.Name = name;
       UserData.Email = email;
       UserData.userID = uid;
-      UserData.userDeviceToken = deviceToken;
+      UserData.userDeviceToken = deviceToken ?? '';
     } catch (e) {
       print('Error saving or updating user data: $e');
       rethrow;
